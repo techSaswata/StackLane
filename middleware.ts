@@ -14,6 +14,14 @@ export async function middleware(req: NextRequest) {
   // Redirect to /dashboard if logged in and accessing /
   if (session && req.nextUrl.pathname === "/") {
     const dashboardUrl = new URL("/dashboard", req.url);
+
+    // Check if the first_time_login cookie is already set
+    const firstTimeLogin = req.cookies.get("first_time_login");
+    if (!firstTimeLogin) {
+      // Set the first_time_login cookie
+      res.cookies.set("first_time_login", "true", { path: "/", httpOnly: false });
+    }
+
     return NextResponse.redirect(dashboardUrl);
   }
 
