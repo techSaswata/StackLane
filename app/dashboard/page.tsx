@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter} from "next/navigation"
 import { useSupabase } from "@/components/supabase-provider"
 import DashboardLayout from "@/components/dashboard-layout"
 import { RepoCard } from "@/components/repo-card"
@@ -70,7 +70,6 @@ function SuspenseWrapper() {
 }
 
 function DashboardContent() {
-  const searchParams = useSearchParams()
   const { user, loading: userLoading } = useSupabase()
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
@@ -103,13 +102,17 @@ function DashboardContent() {
         const response = await fetch("/api/github/repos")
 
         if (!response.ok) {
+          console.error("Error fetching repositories:", {
+            status: response.status,
+            statusText: response.statusText,
+          })
           throw new Error("Failed to fetch repositories")
         }
 
         const data = await response.json()
         setRepositories(data)
       } catch (err) {
-        console.error("Error fetching repositories:", err)
+        console.error("An error occurred while fetching repositories:", err)
         setError("Failed to load your repositories. Please try again later.")
       } finally {
         setLoading(false)
