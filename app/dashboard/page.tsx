@@ -56,6 +56,14 @@ type GitHubStats = {
 export default function DashboardPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
+      <SuspenseWrapper />
+    </Suspense>
+  )
+}
+
+function SuspenseWrapper() {
+  return (
+    <Suspense fallback={<div>Loading content...</div>}>
       <DashboardContent />
     </Suspense>
   )
