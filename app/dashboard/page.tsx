@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSupabase } from "@/components/supabase-provider"
 import DashboardLayout from "@/components/dashboard-layout"
 import { RepoCard } from "@/components/repo-card"
@@ -54,6 +54,15 @@ type GitHubStats = {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+
+function DashboardContent() {
+  const searchParams = useSearchParams()
   const { user, loading: userLoading } = useSupabase()
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
@@ -179,8 +188,8 @@ export default function DashboardPage() {
   }
 
   if (error) {
-  return (
-    <DashboardLayout>
+    return (
+      <DashboardLayout>
         <div className="p-6 w-full">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
