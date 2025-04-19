@@ -26,6 +26,8 @@ export function SupabaseProvider({
   const supabase = createClientComponentClient()
 
   useEffect(() => {
+    let isFirstSignIn = true // Flag to track first sign-in
+
     const getUser = async () => {
       const {
         data: { user },
@@ -41,10 +43,13 @@ export function SupabaseProvider({
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
         setUser(session.user)
-        toast({
-          title: "Signed in successfully",
-          description: `Welcome, ${session.user.email}!`,
-        })
+        if (isFirstSignIn) {
+          toast({
+            title: "Signed in successfully",
+            description: `Welcome, ${session.user.email}!`,
+          })
+          isFirstSignIn = false // Reset the flag after the first sign-in
+        }
       } else if (event === "SIGNED_OUT") {
         setUser(null)
         toast({
