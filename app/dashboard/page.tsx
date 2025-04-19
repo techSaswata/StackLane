@@ -56,20 +56,20 @@ type GitHubStats = {
 export default function DashboardPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <SuspenseWrapper />
-    </Suspense>
-  )
-}
-
-function SuspenseWrapper() {
-  return (
-    <Suspense fallback={<div>Loading content...</div>}>
       <DashboardContent />
     </Suspense>
   )
 }
 
 function DashboardContent() {
+  return (
+    <Suspense fallback={<div>Loading content...</div>}>
+      <DashboardMainContent />
+    </Suspense>
+  )
+}
+
+function DashboardMainContent() {
   const searchParams = useSearchParams()
   const { user, loading: userLoading } = useSupabase()
   const [repositories, setRepositories] = useState<Repository[]>([])
