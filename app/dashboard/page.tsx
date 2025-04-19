@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, Suspense } from "react"
-import { useRouter} from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSupabase } from "@/components/supabase-provider"
 import DashboardLayout from "@/components/dashboard-layout"
 import { RepoCard } from "@/components/repo-card"
@@ -70,6 +70,7 @@ function SuspenseWrapper() {
 }
 
 function DashboardContent() {
+  const searchParams = useSearchParams()
   const { user, loading: userLoading } = useSupabase()
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
