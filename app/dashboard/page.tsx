@@ -64,13 +64,21 @@ export default function DashboardPage() {
 function DashboardContent() {
   return (
     <Suspense fallback={<div>Loading content...</div>}>
+      <DashboardMainContentWrapper />
+    </Suspense>
+  )
+}
+
+function DashboardMainContentWrapper() {
+  return (
+    <Suspense fallback={<div>Loading search parameters...</div>}>
       <DashboardMainContent />
     </Suspense>
   )
 }
 
 function DashboardMainContent() {
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() // Properly wrapped in a Suspense boundary
   const { user, loading: userLoading } = useSupabase()
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
