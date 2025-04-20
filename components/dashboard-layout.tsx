@@ -122,7 +122,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-h-0 w-full">
         <header className="flex-shrink-0 h-16 border-b border-[#222] bg-[#111] flex items-center justify-between px-4 w-full">
           <div className="flex items-center gap-4">
-            <SidebarTrigger />
             <div className="relative w-64">
               <Input
                 type="text"
@@ -135,10 +134,10 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative">
+            {/* <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full"></span>
-            </Button>
+            </Button> */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -152,10 +151,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/profile">Profile</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">Settings</Link>
+                  <Link href="/dashboard">Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>

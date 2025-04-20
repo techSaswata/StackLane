@@ -318,7 +318,14 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
   const handleMessageClick = (e: React.MouseEvent, message: Message) => {
     e.stopPropagation(); // Prevent triggering the outside click handler
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setPopupPosition({ top: rect.top + window.scrollY, left: rect.right + 10 });
+    
+    // Position the popup right next to the message bubble
+    const isUserMessage = message.user_id === user?.id;
+    
+    setPopupPosition({
+      top: rect.top, // Align with the top of the message
+      left: isUserMessage ? rect.left - 160 : rect.right, // Position right next to the message
+    });
     setSelectedMessage(message);
   };
 
@@ -362,9 +369,7 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
                   key={message.id}
                   className={`relative flex gap-3 ${
                     message.user_id === user?.id ? "justify-end" : "justify-start"
-                  } ${message.isDeleting ? "opacity-0 transition-opacity duration-300" : ""} ${
-                    selectedMessage || editingMessage ? "blur-sm" : ""
-                  }`}
+                  } ${message.isDeleting ? "opacity-0 transition-opacity duration-300" : ""}`}
                   onClick={(e) => handleMessageClick(e, message)}
                 >
                   {message.user_id !== user?.id && (
@@ -382,7 +387,7 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
                       message.user_id === user?.id
                         ? "bg-purple-600 text-white"
                         : "bg-[#1a1a1a] text-white"
-                    } rounded-lg p-3`}
+                    } rounded-lg p-3 ${(selectedMessage?.id === message.id || editingMessage?.id === message.id) ? "ring-2 ring-white/30" : ""}`}
                   >
                     <div className="flex justify-between items-start gap-2">
                       <span className="font-medium text-sm">
@@ -424,12 +429,16 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
           {/* Message Options Pop-up */}
           {selectedMessage && popupPosition && (
             <div
-              className="absolute z-50 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg p-4 flex flex-col gap-2 popup-container"
-              style={{ top: popupPosition.top, left: popupPosition.left }}
+              className="absolute z-50 bg-black border border-white/20 rounded-lg p-2 flex flex-col gap-1 popup-container"
+              style={{
+                top: `${popupPosition.top}px`,
+                left: `${popupPosition.left}px`,
+                width: "150px"
+              }}
             >
               <button
                 onClick={() => handleCopyMessage(selectedMessage)}
-                className="px-4 py-2 text-left text-sm text-white bg-indigo-500 hover:bg-indigo-600 rounded-md"
+                className="px-4 py-2 text-left text-sm text-white hover:bg-white/10 rounded-md"
               >
                 Copy
               </button>
@@ -437,13 +446,13 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
                 <>
                   <button
                     onClick={() => handleEditMessage(selectedMessage)}
-                    className="px-4 py-2 text-left text-sm text-white bg-purple-500 hover:bg-purple-600 rounded-md"
+                    className="px-4 py-2 text-left text-sm text-white hover:bg-white/10 rounded-md"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleUnsendMessage(selectedMessage)}
-                    className="px-4 py-2 text-left text-sm text-white bg-red-500 hover:bg-red-600 rounded-md"
+                    className="px-4 py-2 text-left text-sm text-white hover:bg-white/10 rounded-md"
                   >
                     Unsend
                   </button>
@@ -451,7 +460,7 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
               )}
               <button
                 onClick={() => setSelectedMessage(null)}
-                className="px-4 py-2 text-left text-sm text-white bg-gray-500 hover:bg-gray-600 rounded-md"
+                className="px-4 py-2 text-left text-sm text-white hover:bg-white/10 rounded-md"
               >
                 Cancel
               </button>
@@ -462,7 +471,7 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
           <div className="p-4 border-t border-[#222] relative">
             <form
               onSubmit={editingMessage ? handleUpdateMessage : handleSendMessage}
-              className={`flex gap-2 ${selectedMessage || editingMessage ? "blur-sm" : ""}`}
+              className="flex gap-2"
             >
               <Input
                 value={newMessage}
