@@ -15,6 +15,8 @@ import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, 
 import { AuthLoading } from "@/components/auth-loading"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { format } from "date-fns"
+import { enUS } from "date-fns/locale"
 
 type Repository = {
   id: number
@@ -53,21 +55,73 @@ type GitHubStats = {
   longestStreakRange: string
 }
 
+const formatDate = (date: string) => {
+  const options = { day: 'numeric', month: 'short', year: 'numeric' };
+  const suffix = (day: number) => {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  };
+  const parsedDate = new Date(date);
+  const day = parsedDate.getDate();
+  return `${day}${suffix(day)} ${format(parsedDate, 'MMM, yyyy', { locale: enUS })}`;
+};
+
+const calculateRating = (stats: GitHubStats | null): string => {
+  if (!stats) return "C+";
+
+  const { totalContributions, totalStars, totalCommits, totalPRs, closedIssues } = stats;
+
+  let score = 0;
+
+  // Scoring logic
+  if (totalContributions > 1000) score += 3;
+  else if (totalContributions > 500) score += 2;
+  else if (totalContributions > 100) score += 1;
+
+  if (totalStars > 500) score += 3;
+  else if (totalStars > 200) score += 2;
+  else if (totalStars > 50) score += 1;
+
+  if (totalCommits > 1000) score += 3;
+  else if (totalCommits > 500) score += 2;
+  else if (totalCommits > 100) score += 1;
+
+  if (totalPRs > 200) score += 3;
+  else if (totalPRs > 100) score += 2;
+  else if (totalPRs > 20) score += 1;
+
+  if (closedIssues > 200) score += 3;
+  else if (closedIssues > 100) score += 2;
+  else if (closedIssues > 20) score += 1;
+
+  // Determine rating based on score
+  if (score >= 13) return "A+";
+  if (score >= 10) return "A";
+  if (score >= 7) return "B+";
+  if (score >= 4) return "B";
+  return "C+";
+};
+
 export default function DashboardMainContent() {
   const supabase = createClientComponentClient()
   const { user, loading: userLoading } = useSupabase()
   const [repositories, setRepositories] = useState<Repository[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingRepos, setLoadingRepos] = useState(true)
+  const [loadingLanguages, setLoadingLanguages] = useState(true)
+  const [loadingCommits, setLoadingCommits] = useState(true)
+  const [loadingIssues, setLoadingIssues] = useState(true)
+  const [loadingPRs, setLoadingPRs] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<GitHubStats | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'languages' | 'prStatus'>('languages')
-  const [loadingCommits, setLoadingCommits] = useState(true)
-  const [loadingIssues, setLoadingIssues] = useState(true)
-  const [loadingPRs, setLoadingPRs] = useState(true)
-  const [loadingRepos, setLoadingRepos] = useState(true)
-  const [loadingLanguages, setLoadingLanguages] = useState(true)
   const router = useRouter()
+  const [loadingPercentage, setLoadingPercentage] = useState(0);
 
   const loadingMessages = [
     "Fetching your Repos, Commits & Pull Requests",
@@ -85,53 +139,57 @@ export default function DashboardMainContent() {
   }, []);
 
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    if (loadingLanguages || loadingPRs) {
+      interval = setInterval(() => {
+        setLoadingPercentage((prev) => {
+          if (prev < 99) return prev + 1; // Increment until 99%
+          return prev; // Stop incrementing at 99%
+        });
+      }, 100); // Increment every 100ms
+    } else {
+      setLoadingPercentage(100); // Set to 100% when loading is complete
+      if (interval) clearInterval(interval);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loadingLanguages, loadingPRs]);
+
+  useEffect(() => {
     if (!userLoading && !user) {
       router.push("/login")
     }
-  }, [user, userLoading, router])
+  }, [user, userLoading, router, supabase]);
 
   useEffect(() => {
-    if (!userLoading && !loadingRepos && !loadingCommits && !loadingIssues && !loadingPRs && !loadingLanguages) {
+    if (
+      !userLoading &&
+      !loadingRepos &&
+      !loadingCommits &&
+      !loadingIssues &&
+      !loadingPRs &&
+      stats !== null
+    ) {
       setInitialLoading(false);
     }
-  }, [userLoading, loadingRepos, loadingCommits, loadingIssues, loadingPRs, loadingLanguages]);
+  }, [
+    userLoading,
+    loadingRepos,
+    loadingCommits,
+    loadingIssues,
+    loadingPRs,
+    stats,
+  ]);
 
   useEffect(() => {
-    const preloadData = async () => {
-      if (!user) return;
-
-      try {
-        // Trigger background loading of pull requests and commits pages
-        await Promise.all([
-          fetch("/commits").then((res) => {
-            if (!res.ok) throw new Error("Failed to preload commits page");
-          }),
-          fetch("/pull-requests").then((res) => {
-            if (!res.ok) throw new Error("Failed to preload pull requests page");
-          }),
-        ]);
-
-        console.log("Background data preloading completed.");
-
-        // Log data saved to localStorage by the preloaded pages
-        const commitStats = localStorage.getItem("commitStats");
-        const pullRequestStats = {
-          totalPRs: localStorage.getItem("totalPullRequestsCount"),
-          mergedPRs: localStorage.getItem("mergedPullRequestsCount"),
-        };
-
-        console.log("Loaded commitStats from localStorage:", commitStats ? JSON.parse(commitStats) : "No data found");
-        console.log("Loaded pullRequestStats from localStorage:", pullRequestStats);
-      } catch (error) {
-        console.error("Error during background data preloading:", error);
-      } finally {
-        setLoadingCommits(false);
-        setLoadingPRs(false);
-      }
-    };
-
-    preloadData();
-  }, [user]);
+    if (repositories.length > 0 && stats !== null) {
+      console.log("Repositories and stats are ready. Showing dashboard.");
+      setInitialLoading(false);
+    }
+  }, [repositories, stats]);
 
   useEffect(() => {
     const fetchRepositories = async () => {
@@ -166,6 +224,7 @@ export default function DashboardMainContent() {
       }
     };
 
+
     if (user) {
       fetchRepositories();
     }
@@ -173,62 +232,149 @@ export default function DashboardMainContent() {
 
   useEffect(() => {
     const fetchGitHubStats = async () => {
-      if (!user || !repositories.length) return;
+      if (!user) return;
 
       try {
         setLoadingPRs(true);
         setLoadingCommits(true);
-        setLoadingIssues(true);
 
-        // Simulate fetching PRs
-        const storedTotalPRs = localStorage.getItem("totalPullRequestsCount");
-        const storedMergedPRs = localStorage.getItem("mergedPullRequestsCount");
-        const totalPRs = storedTotalPRs ? parseInt(storedTotalPRs, 10) : 0;
-        const mergedPRs = storedMergedPRs ? parseInt(storedMergedPRs, 10) : 0;
-
-        // Simulate fetching commits
-        const commitStatsJSON = localStorage.getItem("commitStats");
-        const commitStats = commitStatsJSON
-          ? JSON.parse(commitStatsJSON)
-          : { totalCommits: 0, currentStreak: 0, commitsPerMonth: [] };
-        const totalCommits = commitStats?.totalCommits || 0;
-        const currentStreak = commitStats?.currentStreak || 0;
-
-        // Simulate fetching issues
-        let closedIssues = 0;
-        const storedClosedIssues = localStorage.getItem("closedIssues");
-        if (storedClosedIssues) {
-          closedIssues = parseInt(storedClosedIssues, 10);
-        } else {
-          closedIssues = Math.floor(Math.random() * (100 - 20 + 1)) + 20;
-          localStorage.setItem("closedIssues", closedIssues.toString());
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.provider_token) {
+          setError("GitHub access token not found. Please sign in again.");
+          router.push("/login");
+          return;
         }
 
-        // Update stats incrementally
+        const [reposResponse, prsResponse] = await Promise.all([
+          fetch("https://api.github.com/user/repos", {
+            headers: {
+              Authorization: `Bearer ${session.provider_token}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          }),
+          fetch(
+            `https://api.github.com/search/issues?q=author:${user?.user_metadata?.user_name}+type:pr&per_page=100`,
+            {
+              headers: {
+                Authorization: `Bearer ${session.provider_token}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            }
+          ),
+        ]);
+
+        if (!reposResponse.ok || !prsResponse.ok) {
+          throw new Error("Failed to fetch data from GitHub API");
+        }
+
+        const [repos, prsData] = await Promise.all([
+          reposResponse.json(),
+          prsResponse.json(),
+        ]);
+
+        interface Commit {
+          commit: {
+            author: {
+              date: string;
+            };
+          };
+        }
+        const allCommits: Commit[] = [];
+        const commitsPerMonth: { [key: string]: number } = {};
+        let streak = 0;
+
+        await Promise.all(
+          repos.map(async (repo: Repository) => {
+            const commitsResponse: Response = await fetch(
+              `https://api.github.com/repos/${repo.full_name}/commits?author=${user?.user_metadata?.user_name || ''}`,
+              {
+          headers: {
+            Authorization: `Bearer ${session.provider_token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+              }
+            );
+
+            if (commitsResponse.ok) {
+              const repoCommits: Commit[] = await commitsResponse.json();
+              allCommits.push(...repoCommits);
+
+              repoCommits.forEach((commit: Commit) => {
+          const monthYear: string = format(new Date(commit.commit.author.date), 'MMM yyyy');
+          commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
+              });
+            }
+          })
+        );
+
+        const sortedDates = allCommits
+          .map((c) => new Date(c.commit.author.date))
+          .sort((a, b) => b.getTime() - a.getTime());
+
+        if (sortedDates.length > 0) {
+          const today = new Date();
+          let currentDate = new Date(sortedDates[0]);
+
+          while (
+            currentDate.toDateString() === today.toDateString() ||
+            (today.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24) <= streak
+          ) {
+            if (sortedDates.some((d) => d.toDateString() === currentDate.toDateString())) {
+              streak++;
+            }
+            currentDate.setDate(currentDate.getDate() - 1);
+          }
+        }
+
+        interface PullRequest {
+          id: number;
+          merged: boolean;
+        }
+
+        const prs: PullRequest[] = prsData.items.map((item: { id: number; pull_request?: { merged_at?: string | null } }) => ({
+          id: item.id,
+          merged: !!item.pull_request?.merged_at,
+        }));
+
+        const totalPRs = prs.length;
+        const mergedPRs = prs.filter((pr) => pr.merged).length;
+        const openPRs = totalPRs - mergedPRs;
+
+        const commitsPerMonthData = Object.entries(commitsPerMonth)
+          .map(([name, commits]) => ({ name, commits }))
+          .sort((a, b) => new Date(b.name).getTime() - new Date(a.name).getTime())
+          .slice(0, 12)
+          .reverse();
+
+        console.log("Fetched repositories:", repos);
+        console.log("Total Commits:", allCommits.length);
+        console.log("Commits Per Month:", commitsPerMonthData);
+        console.log("Merged PRs:", mergedPRs);
+        console.log("Total PRs:", totalPRs);
+
         setStats((prev) => ({
-          ...prev,
-          totalCommits: totalCommits || 0,
-          closedIssues: closedIssues || 0,
-          totalPRs: totalPRs || 0,
-          mergedPRs: mergedPRs || 0,
-          ongoingPRs: (totalPRs || 0) - (mergedPRs || 0),
+          totalCommits: allCommits.length,
+          currentStreak: streak,
+          totalPRs,
+          mergedPRs,
           prStats: {
-            merged: mergedPRs || 0,
-            open: (totalPRs || 0) - (mergedPRs || 0),
+            merged: mergedPRs,
+            open: openPRs,
           },
           contributionData: {
-            dates: commitStats.commitsPerMonth?.map((entry: any) => entry.name) || [],
-            counts: commitStats.commitsPerMonth?.map((entry: any) => entry.commits) || [],
+            dates: commitsPerMonthData.map((entry) => entry.name),
+            counts: commitsPerMonthData.map((entry) => entry.commits),
           },
           languages: prev?.languages || {},
+          closedIssues: prev?.closedIssues || 0,
           totalStars: prev?.totalStars || 0,
           contributedRepos: prev?.contributedRepos || 0,
           totalContributions: prev?.totalContributions || 0,
-          currentStreak: commitStats.currentStreak || prev?.currentStreak || 0,
           currentStreakDate: prev?.currentStreakDate || "",
           contributionStartDate: prev?.contributionStartDate || "",
           longestStreak: prev?.longestStreak || 0,
           longestStreakRange: prev?.longestStreakRange || "",
+          ongoingPRs: prev?.ongoingPRs || 0,
         }));
       } catch (error) {
         console.error("Error fetching GitHub stats:", error);
@@ -236,12 +382,11 @@ export default function DashboardMainContent() {
       } finally {
         setLoadingPRs(false);
         setLoadingCommits(false);
-        setLoadingIssues(false);
       }
     };
 
     fetchGitHubStats();
-  }, [user, repositories]);
+  }, [user]);
 
   useEffect(() => {
     const fetchLanguages = async () => {
@@ -290,50 +435,379 @@ export default function DashboardMainContent() {
       }
     };
 
-    fetchLanguages();
+ 
+      fetchLanguages();
+    
   }, [user, repositories]);
 
-  // Update this useEffect to correctly merge commitStats with existing stats
   useEffect(() => {
-    const commitStatsJSON = localStorage.getItem("commitStats")
-    if (commitStatsJSON) {
-      const commitStats = JSON.parse(commitStatsJSON)
-      setStats(prev => ({
-        ...prev,
-        totalCommits: commitStats.totalCommits || prev?.totalCommits || 0,
-        currentStreak: commitStats.currentStreak || prev?.currentStreak || 0,
-        contributionData: {
-          ...prev?.contributionData,
-          dates: commitStats.commitsPerMonth?.map((entry: any) => entry.date) || prev?.contributionData?.dates || [],
-          counts: commitStats.commitsPerMonth?.map((entry: any) => entry.count) || prev?.contributionData?.counts || [],
-        },
-        // Ensure other fields remain intact
-        closedIssues: prev?.closedIssues || 0,
-        totalPRs: prev?.totalPRs || 0,
-        mergedPRs: prev?.mergedPRs || 0,
-        ongoingPRs: prev?.ongoingPRs || 0,
-        languages: prev?.languages || {},
-        prStats: prev?.prStats || { merged: 0, open: 0 },
-        totalStars: prev?.totalStars || 0,
-        contributedRepos: prev?.contributedRepos || 0,
-        totalContributions: prev?.totalContributions || 0,
-        currentStreakDate: prev?.currentStreakDate || "",
-        contributionStartDate: prev?.contributionStartDate || "",
-        longestStreak: prev?.longestStreak || 0,
-        longestStreakRange: prev?.longestStreakRange || "",
-      }))
-    }
-  }, [])
+    const fetchContributionStats = async () => {
+      if (!user) return;
 
-  // Add this useEffect to load repoStats from localStorage (for debugging or future use)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.provider_token) {
+          setError("GitHub access token not found. Please sign in again.");
+          router.push("/login");
+          return;
+        }
+
+        const query = `
+          query ContributionsView($username: String!, $from: DateTime!, $to: DateTime!) {
+            user(login: $username) {
+              contributionsCollection(from: $from, to: $to) {
+                totalCommitContributions
+                totalIssueContributions
+                totalPullRequestContributions
+                totalPullRequestReviewContributions
+                contributionCalendar {
+                  weeks {
+                    contributionDays {
+                      contributionCount
+                      date
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `;
+
+        const today = new Date();
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+        const variables = {
+          username: user?.user_metadata?.user_name,
+          from: oneYearAgo.toISOString(),
+          to: today.toISOString(),
+        };
+
+        const response = await fetch("https://api.github.com/graphql", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.provider_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query, variables }),
+        });
+
+        if (!response.ok) {
+          const errorDetails = await response.json();
+          console.error("Error fetching contributions data:", {
+            status: response.status,
+            statusText: response.statusText,
+            errorDetails,
+          });
+          throw new Error("Failed to fetch contributions data from GitHub GraphQL API.");
+        }
+
+        const { data } = await response.json();
+        const contributions = data.user.contributionsCollection;
+
+        // Calculate total contributions
+        const totalContributions =
+          contributions.totalCommitContributions +
+          contributions.totalIssueContributions +
+          contributions.totalPullRequestContributions +
+          contributions.totalPullRequestReviewContributions;
+
+        // Calculate longest streak
+        interface ContributionDay {
+          contributionCount: number;
+          date: string;
+        }
+
+        interface Week {
+          contributionDays: ContributionDay[];
+        }
+
+        interface ContributionCalendar {
+          weeks: Week[];
+        }
+
+        interface ContributionsCollection {
+          totalCommitContributions: number;
+          totalIssueContributions: number;
+          totalPullRequestContributions: number;
+          totalPullRequestReviewContributions: number;
+          contributionCalendar: ContributionCalendar;
+        }
+
+        const contributionDays: ContributionDay[] = contributions.contributionCalendar.weeks.flatMap(
+          (week: Week) => week.contributionDays
+        );
+
+        let currentStreak = 0;
+        let longestStreak = 0;
+        let streakStartDate = "";
+        let streakEndDate = "";
+        let tempStreakStartDate = "";
+
+        for (let i = 0; i < contributionDays.length; i++) {
+          if (contributionDays[i].contributionCount > 0) {
+            currentStreak++;
+            if (currentStreak === 1) {
+              tempStreakStartDate = contributionDays[i].date;
+            }
+            if (currentStreak > longestStreak) {
+              longestStreak = currentStreak;
+              streakStartDate = tempStreakStartDate;
+              streakEndDate = contributionDays[i].date;
+            }
+          } else {
+            currentStreak = 0;
+          }
+        }
+
+        // Format streak dates
+        const formattedStreakStartDate = streakStartDate
+          ? formatDate(streakStartDate)
+          : "";
+        const formattedStreakEndDate = streakEndDate
+          ? formatDate(streakEndDate)
+          : "";
+
+        setStats((prev) => ({
+          ...prev,
+          totalContributions,
+          longestStreak,
+          longestStreakRange: `${formattedStreakStartDate} - ${formattedStreakEndDate}`,
+          totalCommits: prev?.totalCommits || 0,
+          closedIssues: prev?.closedIssues || 0,
+          totalPRs: prev?.totalPRs || 0,
+          mergedPRs: prev?.mergedPRs || 0,
+          ongoingPRs: prev?.ongoingPRs || 0,
+          prStats: prev?.prStats || { merged: 0, open: 0 },
+          contributionData: prev?.contributionData || { dates: [], counts: [] },
+          languages: prev?.languages || {},
+          totalStars: prev?.totalStars || 0,
+          contributedRepos: prev?.contributedRepos || 0,
+          currentStreak: prev?.currentStreak || 0,
+          currentStreakDate: prev?.currentStreakDate || "",
+          contributionStartDate: prev?.contributionStartDate || "",
+        }));
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Error fetching contribution stats:", error.message);
+        } else {
+          console.error("Error fetching contribution stats:", error);
+        }
+        setError("Failed to load your GitHub statistics. Please check your GitHub API token or try again later.");
+      }
+    };
+
+    fetchContributionStats();
+  }, [user]);
+
   useEffect(() => {
-    const repoStatsJSON = localStorage.getItem("repoStats")
-    if (repoStatsJSON) {
-      const repoStats = JSON.parse(repoStatsJSON)
-      console.log("Loaded repoStats from localStorage:", repoStats)
-      // Optionally update state if needed
-    }
-  }, [])
+    const fetchTotalStars = async () => {
+      if (!user) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.provider_token) {
+          setError("GitHub access token not found. Please sign in again.");
+          router.push("/login");
+          return;
+        }
+
+        let totalStars = 0;
+        let page = 1;
+        const perPage = 100;
+
+        while (true) {
+          const response = await fetch(
+            `https://api.github.com/user/starred?per_page=${perPage}&page=${page}`,
+            {
+              headers: {
+                Authorization: `Bearer ${session.provider_token}`,
+                Accept: "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+            }
+          );
+
+          if (!response.ok) {
+            const errorDetails = await response.json();
+            console.error("Error fetching starred repositories:", {
+              status: response.status,
+              statusText: response.statusText,
+              errorDetails,
+            });
+            throw new Error("Failed to fetch starred repositories.");
+          }
+
+          const starredRepos = await response.json();
+          totalStars += starredRepos.length;
+
+          if (starredRepos.length < perPage) break; // Exit loop if no more pages
+          page++;
+        }
+
+        setStats((prev) => ({
+          ...prev,
+          totalStars,
+          totalCommits: prev?.totalCommits || 0,
+          closedIssues: prev?.closedIssues || 0,
+          totalPRs: prev?.totalPRs || 0,
+          mergedPRs: prev?.mergedPRs || 0,
+          ongoingPRs: prev?.ongoingPRs || 0,
+          prStats: prev?.prStats || { merged: 0, open: 0 },
+          contributionData: prev?.contributionData || { dates: [], counts: [] },
+          languages: prev?.languages || {},
+          totalContributions: prev?.totalContributions || 0,
+          contributedRepos: prev?.contributedRepos || 0,
+          currentStreak: prev?.currentStreak || 0,
+          currentStreakDate: prev?.currentStreakDate || "",
+          contributionStartDate: prev?.contributionStartDate || "",
+          longestStreak: prev?.longestStreak || 0,
+          longestStreakRange: prev?.longestStreakRange || "",
+        }));
+      } catch (error) {
+        console.error("Error fetching total stars:", error);
+        setError("Failed to load your starred repositories. Please try again later.");
+      }
+    };
+
+    fetchTotalStars();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchTotalClosedIssues = async () => {
+      if (!user) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.provider_token) {
+          setError("GitHub access token not found. Please sign in again.");
+          router.push("/login");
+          return;
+        }
+
+        const response = await fetch(
+          `https://api.github.com/search/issues?q=author:${user?.user_metadata?.user_name}+type:issue+state:closed&per_page=1`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.provider_token}`,
+              Accept: "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorDetails = await response.json();
+          console.error("Error fetching closed issues:", {
+            status: response.status,
+            statusText: response.statusText,
+            errorDetails,
+          });
+          throw new Error("Failed to fetch closed issues.");
+        }
+
+        const data = await response.json();
+        const totalClosedIssues = data.total_count;
+
+        setStats((prev) => ({
+          ...prev,
+          closedIssues: totalClosedIssues,
+          totalCommits: prev?.totalCommits || 0,
+          totalPRs: prev?.totalPRs || 0,
+          mergedPRs: prev?.mergedPRs || 0,
+          ongoingPRs: prev?.ongoingPRs || 0,
+          prStats: prev?.prStats || { merged: 0, open: 0 },
+          contributionData: prev?.contributionData || { dates: [], counts: [] },
+          languages: prev?.languages || {},
+          totalStars: prev?.totalStars || 0,
+          contributedRepos: prev?.contributedRepos || 0,
+          totalContributions: prev?.totalContributions || 0,
+          currentStreak: prev?.currentStreak || 0,
+          currentStreakDate: prev?.currentStreakDate || "",
+          contributionStartDate: prev?.contributionStartDate || "",
+          longestStreak: prev?.longestStreak || 0,
+          longestStreakRange: prev?.longestStreakRange || "",
+        }));
+      } catch (error) {
+        console.error("Error fetching total closed issues:", error);
+        setError("Failed to load your closed issues. Please try again later.");
+      }
+    };
+
+    fetchTotalClosedIssues();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchContributedRepos = async () => {
+      if (!user || repositories.length === 0) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.provider_token) {
+          setError("GitHub access token not found. Please sign in again.");
+          router.push("/login");
+          return;
+        }
+
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+        let contributedReposCount = 0;
+
+        await Promise.all(
+          repositories.map(async (repo) => {
+            const response = await fetch(
+              `https://api.github.com/repos/${repo.full_name}/pulls?state=all&author=${user?.user_metadata?.user_name}&since=${oneYearAgo.toISOString()}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${session.provider_token}`,
+                  Accept: "application/vnd.github+json",
+                },
+              }
+            );
+
+            if (!response.ok) {
+              console.error(`Error fetching pull requests for repo ${repo.full_name}:`, {
+                status: response.status,
+                statusText: response.statusText,
+              });
+              return;
+            }
+
+            const pullRequests = await response.json();
+            if (pullRequests.length > 0) {
+              contributedReposCount++;
+            }
+          })
+        );
+
+        setStats((prev) => ({
+          ...prev,
+          contributedRepos: contributedReposCount,
+          totalCommits: prev?.totalCommits || 0,
+          closedIssues: prev?.closedIssues || 0,
+          totalPRs: prev?.totalPRs || 0,
+          mergedPRs: prev?.mergedPRs || 0,
+          ongoingPRs: prev?.ongoingPRs || 0,
+          prStats: prev?.prStats || { merged: 0, open: 0 },
+          contributionData: prev?.contributionData || { dates: [], counts: [] },
+          languages: prev?.languages || {},
+          totalStars: prev?.totalStars || 0,
+          totalContributions: prev?.totalContributions || 0,
+          currentStreak: prev?.currentStreak || 0,
+          currentStreakDate: prev?.currentStreakDate || "",
+          contributionStartDate: prev?.contributionStartDate || "",
+          longestStreak: prev?.longestStreak || 0,
+          longestStreakRange: prev?.longestStreakRange || "",
+        }));
+      } catch (error) {
+        console.error("Error fetching contributed repositories:", error);
+        setError("Failed to load contributed repositories. Please try again later.");
+      }
+    };
+
+    fetchContributedRepos();
+  }, [user, repositories]);
 
   if (loadingRepos && repositories.length === 0) {
     return (
@@ -467,9 +941,9 @@ export default function DashboardMainContent() {
             <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={stats?.contributionData.dates.map((date, index) => ({
+                  data={stats?.contributionData?.dates.map((date, index) => ({
                     date,
-                    contributions: stats.contributionData.counts[index]
+                    contributions: stats.contributionData?.counts[index] || 0,
                   }))}
                   margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                 >
@@ -544,57 +1018,66 @@ export default function DashboardMainContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between gap-8 h-[500px]">
-                  <div className="h-full w-[500px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={Object.entries(stats?.languages || {}).map(([name, value]) => ({
-                            name,
-                            value,
-                          }))}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={80}
-                          outerRadius={160}
-                          paddingAngle={3}
-                          dataKey="value"
-                          nameKey="name"
+                {loadingLanguages ? (
+                  <div className="flex items-center justify-center h-[500px] relative">
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-400"></div>
+                    <div className="absolute flex items-center justify-center h-16 w-16">
+                      <span className="text-cyan-400 font-bold text-lg">{loadingPercentage}%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-8 h-[500px]">
+                    <div className="h-full w-[500px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={Object.entries(stats?.languages || {}).map(([name, value]) => ({
+                              name,
+                              value,
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={80}
+                            outerRadius={160}
+                            paddingAngle={3}
+                            dataKey="value"
+                            nameKey="name"
+                          >
+                            {Object.entries(stats?.languages || {}).map(([name], index) => (
+                              <Cell
+                                key={`cell-lang-${index}`}
+                                fill={`hsl(${(index * 360) / Object.keys(stats?.languages || {}).length}, 70%, 50%)`}
+                                stroke="#222"
+                                strokeWidth={1}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                      {Object.entries(stats?.languages || {}).map(([name, value], index) => (
+                        <div
+                          key={name}
+                          className="flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:bg-slate-800/30"
                         >
-                          {Object.entries(stats?.languages || {}).map(([name], index) => (
-                            <Cell
-                              key={`cell-lang-${index}`}
-                              fill={`hsl(${(index * 360) / Object.keys(stats?.languages || {}).length}, 70%, 50%)`}
-                              stroke="#222"
-                              strokeWidth={1}
+                          <div className="flex items-center gap-2 flex-1">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{
+                                background: `hsl(${(index * 360) / Object.keys(stats?.languages || {}).length}, 70%, 50%)`,
+                              }}
                             />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
-                    {Object.entries(stats?.languages || {}).map(([name, value], index) => (
-                      <div
-                        key={name}
-                        className="flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:bg-slate-800/30"
-                      >
-                        <div className="flex items-center gap-2 flex-1">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              background: `hsl(${(index * 360) / Object.keys(stats?.languages || {}).length}, 70%, 50%)`,
-                            }}
-                          />
-                          <span className="font-medium text-slate-200">{name}</span>
+                            <span className="font-medium text-slate-200">{name}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="text-slate-400">{value} bytes</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 text-sm">
-                          <span className="text-slate-400">{value} bytes</span>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -605,68 +1088,79 @@ export default function DashboardMainContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between gap-8 h-[500px]">
-                  <div className="h-full w-[500px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <defs>
-                          <linearGradient id="gradient-merged" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#9333EA" stopOpacity={0.95} />
-                            <stop offset="100%" stopColor="#7E22CE" stopOpacity={0.9} />
-                          </linearGradient>
-                          <linearGradient id="gradient-open" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.95} />
-                            <stop offset="100%" stopColor="#2563EB" stopOpacity={0.9} />
-                          </linearGradient>
-                        </defs>
-                        <Pie
-                          data={[
-                            { name: 'Merged', value: stats?.prStats.merged || 0 },
-                            { name: 'Open', value: stats?.prStats.open || 0 },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={80}
-                          outerRadius={160}
-                          paddingAngle={3}
-                          dataKey="value"
-                          nameKey="name"
+                {loadingPRs ? (
+                  <div className="flex items-center justify-center h-[500px] relative">
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-400"></div>
+                    <div className="absolute flex items-center justify-center h-16 w-16">
+                      <span className="text-blue-400 font-bold text-lg">{loadingPercentage}%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-8 h-[500px]">
+                    <div className="h-full w-[500px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <defs>
+                            <linearGradient id="gradient-merged" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#9333EA" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="#7E22CE" stopOpacity={0.9} />
+                            </linearGradient>
+                            <linearGradient id="gradient-open" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="#2563EB" stopOpacity={0.9} />
+                            </linearGradient>
+                          </defs>
+                          <Pie
+                            data={[
+                              { name: 'Merged', value: stats?.prStats.merged || 0 },
+                              { name: 'Open', value: (stats?.totalPRs || 0) - (stats?.prStats.merged || 0) },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={80}
+                            outerRadius={160}
+                            paddingAngle={3}
+                            dataKey="value"
+                            nameKey="name"
+                          >
+                            <Cell fill="url(#gradient-merged)" stroke="#222" strokeWidth={1} />
+                            <Cell fill="url(#gradient-open)" stroke="#222" strokeWidth={1} />
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                      {[
+                        { name: 'Merged', value: stats?.prStats.merged || 0 },
+                        { name: 'Open', value: (stats?.totalPRs || 0) - (stats?.prStats.merged || 0) },
+                      ].map((entry, index) => (
+                        <div
+                          key={entry.name}
+                          className="flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:bg-slate-800/30"
                         >
-                          <Cell fill="url(#gradient-merged)" stroke="#222" strokeWidth={1} />
-                          <Cell fill="url(#gradient-open)" stroke="#222" strokeWidth={1} />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
-                    {[
-                      { name: 'Merged', value: stats?.prStats.merged || 0 },
-                      { name: 'Open', value: stats?.prStats.open || 0 },
-                    ].map((entry, index) => (
-                      <div
-                        key={entry.name}
-                        className="flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:bg-slate-800/30"
-                      >
-                        <div className="flex items-center gap-2 flex-1">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              background: index === 0 ? `linear-gradient(to bottom right, #9333EA, #7E22CE)` : `linear-gradient(to bottom right, #3B82F6, #2563EB)`,
-                            }}
-                          />
-                          <span className="font-medium text-slate-200">{entry.name}</span>
+                          <div className="flex items-center gap-2 flex-1">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{
+                                background: index === 0
+                                  ? `linear-gradient(to bottom right, #9333EA, #7E22CE)`
+                                  : `linear-gradient(to bottom right, #3B82F6, #2563EB)`,
+                              }}
+                            />
+                            <span className="font-medium text-slate-200">{entry.name}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="text-slate-400">{entry.value} PRs</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-400 w-[60px] text-right">
+                              {((entry.value / (stats?.totalPRs || 1)) * 100).toFixed(1)}%
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 text-sm">
-                          <span className="text-slate-400">{entry.value} PRs</span>
-                          <span className="text-slate-500">•</span>
-                          <span className="text-slate-400 w-[60px] text-right">
-                            {((entry.value / (stats?.totalPRs || 1)) * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -687,7 +1181,7 @@ export default function DashboardMainContent() {
                 </div>
                 <div className="flex items-center gap-3">
                   <GitMerge className="h-6 w-6 text-purple-400" />
-                  <span className="text-lg text-blue-300">Total Commits (2025):</span>
+                  <span className="text-lg text-blue-300">Total Commits (Last Year):</span>
                   <span className="text-lg font-bold text-white">{stats?.totalCommits}</span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -738,7 +1232,7 @@ export default function DashboardMainContent() {
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-6xl font-bold text-cyan-300">C+</span>
+                    <span className="text-6xl font-bold text-cyan-300">{calculateRating(stats)}</span>
                   </div>
                 </div>
               </div>
@@ -748,26 +1242,32 @@ export default function DashboardMainContent() {
 
         {/* Contribution Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-[#111] border-[#222]">
-            <CardContent className="p-6 flex flex-col items-center text-center">
-              <h3 className="text-5xl font-bold text-purple-500 mb-4">{stats?.totalContributions}</h3>
+          <Card className="bg-[#111] border-[#222] h-[250px]">
+            <CardContent className="h-full flex flex-col items-center justify-center text-center">
+              <h3 className="text-5xl font-bold text-purple-500 mb-2">{stats?.totalContributions}</h3>
               <p className="text-lg text-blue-300">Total Contributions</p>
-              <p className="text-sm text-gray-400 mt-2">{stats?.contributionStartDate} - Present</p>
+              <p className="text-xs text-gray-500 mt-1 italic">
+                (Public Repositories)
+              </p>
+              <p className="text-sm text-gray-400 mt-3">
+                {stats?.contributionStartDate} - Present
+              </p>
             </CardContent>
           </Card>
           
-          <Card className="bg-[#111] border-[#222]">
-            <CardContent className="p-6 flex flex-col items-center text-center">
+          <Card className="bg-[#111] border-[#222] h-[250px]">
+            <CardContent className="h-full flex flex-col items-center justify-center text-center">
               <div className="h-20 w-20 rounded-full border-4 border-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 flex items-center justify-center mb-4 bg-gradient-to-br from-blue-500/20 to-purple-500/20">
                 <span className="text-4xl font-bold text-amber-400">{stats?.currentStreak}</span>
               </div>
               <p className="text-lg text-teal-300">Current Streak</p>
               <p className="text-sm text-gray-400 mt-2">{stats?.currentStreakDate}</p>
+              <p className="text-sm text-gray-500 mt-1">{formatDate(new Date().toISOString())}</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-[#111] border-[#222]">
-            <CardContent className="p-6 flex flex-col items-center text-center">
+          <Card className="bg-[#111] border-[#222] h-[250px]">
+            <CardContent className="h-full flex flex-col items-center justify-center text-center">
               <h3 className="text-5xl font-bold text-cyan-500 mb-4">{stats?.longestStreak}</h3>
               <p className="text-lg text-indigo-300">Longest Streak</p>
               <p className="text-sm text-gray-400 mt-2">{stats?.longestStreakRange}</p>

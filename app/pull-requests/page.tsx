@@ -87,10 +87,10 @@ export default function PullRequestsPage() {
   useEffect(() => {
     async function fetchPullRequests() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          console.error("No session found")
-          return
+          console.error("No session found");
+          return;
         }
 
         // First fetch the list of user's repositories
@@ -98,35 +98,38 @@ export default function PullRequestsPage() {
           headers: {
             Authorization: `Bearer ${session.provider_token}`,
           },
-        })
+        });
 
         if (!reposResponse.ok) {
-          throw new Error("Failed to fetch repositories")
+          throw new Error("Failed to fetch repositories");
         }
 
-        const repos = await reposResponse.json()
-        
+        const repos = await reposResponse.json();
+
         // Then fetch all PRs authored by the user
-        const response = await fetch(`https://api.github.com/search/issues?q=author:${user?.user_metadata?.user_name}+type:pr&per_page=100`, {
-          headers: {
-            Authorization: `Bearer ${session.provider_token}`,
-          },
-        })
+        const response = await fetch(
+          `https://api.github.com/search/issues?q=author:${user?.user_metadata?.user_name}+type:pr&per_page=100`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.provider_token}`,
+            },
+          }
+        );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch pull requests")
+          throw new Error("Failed to fetch pull requests");
         }
 
-        const data = await response.json()
-        
+        const data = await response.json();
+
         // Process the PRs and calculate repo stats
         const prs = data.items.map((item: any) => {
           // Extract repo info from PR URL (format: https://api.github.com/repos/owner/repo/pulls/123)
-          const urlParts = item.repository_url.split('/')
-          const repoName = urlParts[urlParts.length - 1]
-          const repoOwner = urlParts[urlParts.length - 2]
-          const fullName = `${repoOwner}/${repoName}`
-          
+          const urlParts = item.repository_url.split("/");
+          const repoName = urlParts[urlParts.length - 1];
+          const repoOwner = urlParts[urlParts.length - 2];
+          const fullName = `${repoOwner}/${repoName}`;
+
           return {
             id: item.id,
             number: item.number,
@@ -138,81 +141,78 @@ export default function PullRequestsPage() {
             comments: item.comments,
             user: {
               login: item.user.login,
-              avatar_url: item.user.avatar_url
+              avatar_url: item.user.avatar_url,
             },
             repository: {
               id: item.id,
               name: repoName,
-              full_name: fullName
+              full_name: fullName,
             },
             labels: item.labels || [],
-            merged: !!item.pull_request?.merged_at // Check for the presence of merged_at
-          }
-        })
-        
+            merged: !!item.pull_request?.merged_at, // Check for the presence of merged_at
+          };
+        });
+
         // Calculate stats per repository
-        const statsMap = new Map<string, number>()
+        const statsMap = new Map<string, number>();
         prs.forEach((pr: PullRequest) => {
-          const repoName = pr.repository.full_name
-          statsMap.set(repoName, (statsMap.get(repoName) || 0) + 1)
-        })
-        
-        const stats = Array.from(statsMap.entries()).map(([fullName, count], index) => {
-          const parts = fullName.split('/')
-          return {
-            name: parts[1], // repo name
-            fullName,
-            count,
-            color: GRADIENTS[index % GRADIENTS.length][0]
-          }
-        }).sort((a, b) => b.count - a.count) // Sort by count descending
-        
-        setRepoStats(stats)
-        
+          const repoName = pr.repository.full_name;
+          statsMap.set(repoName, (statsMap.get(repoName) || 0) + 1);
+        });
+
+        const stats = Array.from(statsMap.entries())
+          .map(([fullName, count], index) => {
+            const parts = fullName.split("/");
+            return {
+              name: parts[1], // repo name
+              fullName,
+              count,
+              color: GRADIENTS[index % GRADIENTS.length][0],
+            };
+          })
+          .sort((a, b) => b.count - a.count); // Sort by count descending
+
+        setRepoStats(stats);
+
         // Sort PRs: first open, then merged, then closed
         const sortedPRs = [...prs].sort((a, b) => {
           // First by state (open first)
-          if (a.state === 'open' && b.state !== 'open') return -1
-          if (a.state !== 'open' && b.state === 'open') return 1
-          
+          if (a.state === "open" && b.state !== "open") return -1;
+          if (a.state !== "open" && b.state === "open") return 1;
+
           // Then by merged status (merged second)
-          if (a.merged && !b.merged) return -1
-          if (!a.merged && b.merged) return 1
-          
+          if (a.merged && !b.merged) return -1;
+          if (!a.merged && b.merged) return 1;
+
           // Finally by date (newest first)
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        })
-        
-        setPullRequests(sortedPRs)
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        setPullRequests(sortedPRs);
 
         // Calculate total pull requests count
         const totalPullRequestsCount = prs.length;
 
         // Calculate merged pull requests count
-        const mergedPullRequestsCount = prs.filter((pr: PullRequest) => pr.merged).length;
+        const mergedPullRequestsCount = prs.filter(
+          (pr: PullRequest) => pr.merged
+        ).length;
 
-        // Save total and merged pull requests count to localStorage
-        localStorage.setItem("totalPullRequestsCount", JSON.stringify(totalPullRequestsCount));
-        localStorage.setItem("mergedPullRequestsCount", JSON.stringify(mergedPullRequestsCount));
+        // Log the stats instead of saving to localStorage
+        console.log("Total Pull Requests:", totalPullRequestsCount);
+        console.log("Merged Pull Requests:", mergedPullRequestsCount);
       } catch (error) {
-        console.error("Error fetching pull requests:", error)
-        setError("Failed to load your pull requests. Please try again later.")
+        console.error("Error fetching pull requests:", error);
+        setError("Failed to load your pull requests. Please try again later.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
     if (user) {
-      fetchPullRequests()
+      fetchPullRequests();
     }
-  }, [user, supabase])
-
-  // Persist repoStats to localStorage for fetching by another page
-  useEffect(() => {
-    if (repoStats.length) {
-      localStorage.setItem("repoStats", JSON.stringify(repoStats))
-    }
-  }, [repoStats])
+  }, [user, supabase]);
 
   if (userLoading) {
     return (

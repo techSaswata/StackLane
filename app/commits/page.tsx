@@ -86,52 +86,52 @@ export default function CommitsPage() {
   useEffect(() => {
     async function fetchCommits() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          console.error("No session found")
-          setError("Please sign in again to access your commits.")
-          router.push("/login")
-          return
+          console.error("No session found");
+          setError("Please sign in again to access your commits.");
+          router.push("/login");
+          return;
         }
 
         if (!session.provider_token) {
-          console.error("No GitHub token found")
-          setError("GitHub access token not found. Please sign in again.")
-          router.push("/login")
-          return
+          console.error("No GitHub token found");
+          setError("GitHub access token not found. Please sign in again.");
+          router.push("/login");
+          return;
         }
 
         // First fetch repositories
         const reposResponse = await fetch("https://api.github.com/user/repos", {
           headers: {
             Authorization: `Bearer ${session.provider_token}`,
-            Accept: "application/vnd.github.v3+json"
+            Accept: "application/vnd.github.v3+json",
           },
-        })
+        });
 
         if (!reposResponse.ok) {
-          const errorData = await reposResponse.json().catch(() => ({}))
+          const errorData = await reposResponse.json().catch(() => ({}));
           console.error("GitHub API Error:", {
             status: reposResponse.status,
             statusText: reposResponse.statusText,
-            error: errorData
-          })
-          
+            error: errorData,
+          });
+
           if (reposResponse.status === 401) {
-            setError("GitHub token expired. Please sign in again.")
-            router.push("/login")
-            return
+            setError("GitHub token expired. Please sign in again.");
+            router.push("/login");
+            return;
           }
-          
-          throw new Error(`Failed to fetch repositories: ${reposResponse.statusText}`)
+
+          throw new Error(`Failed to fetch repositories: ${reposResponse.statusText}`);
         }
 
-        const repos = await reposResponse.json()
-        
+        const repos = await reposResponse.json();
+
         // Fetch commits for each repository
-        const allCommits: Commit[] = []
-        const commitsPerRepo: { [key: string]: number } = {}
-        const commitsPerMonth: { [key: string]: number } = {}
+        const allCommits: Commit[] = [];
+        const commitsPerRepo: { [key: string]: number } = {};
+        const commitsPerMonth: { [key: string]: number } = {};
 
         for (const repo of repos) {
           try {
@@ -140,98 +140,92 @@ export default function CommitsPage() {
               {
                 headers: {
                   Authorization: `Bearer ${session.provider_token}`,
-                  Accept: "application/vnd.github.v3+json"
+                  Accept: "application/vnd.github.v3+json",
                 },
               }
-            )
+            );
 
             if (commitsResponse.ok) {
-              const repoCommits = await commitsResponse.json()
+              const repoCommits = await commitsResponse.json();
               repoCommits.forEach((commit: Commit) => {
-                commit.repository = { name: repo.name, full_name: repo.full_name }
-              })
-              allCommits.push(...repoCommits)
+                commit.repository = { name: repo.name, full_name: repo.full_name };
+              });
+              allCommits.push(...repoCommits);
 
               // Count commits per repo
-              commitsPerRepo[repo.name] = repoCommits.length
+              commitsPerRepo[repo.name] = repoCommits.length;
 
               // Count commits per month
               repoCommits.forEach((commit: Commit) => {
-                const monthYear = format(new Date(commit.commit.author.date), 'MMM yyyy')
-                commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1
-              })
+                const monthYear = format(new Date(commit.commit.author.date), 'MMM yyyy');
+                commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
+              });
             } else {
               console.warn(`Failed to fetch commits for ${repo.full_name}:`, {
                 status: commitsResponse.status,
-                statusText: commitsResponse.statusText
-              })
+                statusText: commitsResponse.statusText,
+              });
             }
           } catch (error) {
-            console.error(`Error fetching commits for ${repo.full_name}:`, error)
+            console.error(`Error fetching commits for ${repo.full_name}:`, error);
           }
         }
 
         // Calculate current streak
         const sortedDates = allCommits
-          .map(c => new Date(c.commit.author.date))
-          .sort((a, b) => b.getTime() - a.getTime())
+          .map((c) => new Date(c.commit.author.date))
+          .sort((a, b) => b.getTime() - a.getTime());
 
-        let streak = 0
+        let streak = 0;
         if (sortedDates.length > 0) {
-          const today = new Date()
-          let currentDate = new Date(sortedDates[0])
-          
-          while (currentDate.toDateString() === today.toDateString() || 
-                 (today.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24) <= streak) {
-            if (sortedDates.some(d => d.toDateString() === currentDate.toDateString())) {
-              streak++
+          const today = new Date();
+          let currentDate = new Date(sortedDates[0]);
+
+          while (
+            currentDate.toDateString() === today.toDateString() ||
+            (today.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24) <= streak
+          ) {
+            if (sortedDates.some((d) => d.toDateString() === currentDate.toDateString())) {
+              streak++;
             }
-            currentDate.setDate(currentDate.getDate() - 1)
+            currentDate.setDate(currentDate.getDate() - 1);
           }
         }
 
         // Format data for charts
         const commitsPerRepoData = Object.entries(commitsPerRepo)
           .map(([name, value]) => ({ name, value }))
-          .sort((a, b) => b.value - a.value)
+          .sort((a, b) => b.value - a.value);
 
         const commitsPerMonthData = Object.entries(commitsPerMonth)
           .map(([name, commits]) => ({ name, commits }))
           .sort((a, b) => new Date(b.name).getTime() - new Date(a.name).getTime())
           .slice(0, 12)
-          .reverse()
+          .reverse();
 
-        setCommits(allCommits)
+        setCommits(allCommits);
         setStats({
           commitsPerRepo: commitsPerRepoData,
           commitsPerMonth: commitsPerMonthData,
           currentStreak: streak,
           totalCommits: allCommits.length,
-          lastCommitDate: allCommits[0]?.commit.author.date || ""
-        })
-
-        // Save totalCommits, currentStreak, commitsPerMonth, and commitsPerRepo to localStorage
-        localStorage.setItem("commitStats", JSON.stringify({
-          totalCommits: allCommits.length,
-          currentStreak: streak,
-          commitsPerMonth: commitsPerMonthData, // Save monthly commit data
-          commitsPerRepo: commitsPerRepoData   // Save repository commit data
-        }))
+          lastCommitDate: allCommits[0]?.commit.author.date || "",
+        });
       } catch (error) {
-        console.error("Error fetching commits:", error)
-        setError("Failed to load your commits. Please try again later.")
+        console.error("Error fetching commits:", error);
+        setError("Failed to load your commits. Please try again later.");
       } finally {
-        setLoading(false)
+        setLoading(false);
         setTimeout(() => {
-          setShowLoading(false)
-        }, 2000)
+          setShowLoading(false);
+        }, 2000);
       }
     }
 
     if (user) {
-      fetchCommits()
+      fetchCommits();
     }
-  }, [user, supabase])
+  }, [user, supabase]);
 
   return (
     <>
