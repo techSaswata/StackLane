@@ -5,6 +5,13 @@ import Link from "next/link"
 import { Github, ArrowRight, Code, MessageSquare, BarChart3, GitBranch, Zap, CheckCircle } from "lucide-react"
 
 export default function LandingPage() {
+  const scrollToSection = (id: string) => {
+    const section = document.getElementById(id)
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" })
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white overflow-hidden">
       {/* Navigation */}
@@ -18,18 +25,18 @@ export default function LandingPage() {
               <span className="text-xl font-semibold text-white">StackLane</span>
             </Link>
             <div className="hidden md:flex items-center gap-6">
-              <Link href="/features" className="text-white/70 hover:text-white transition-colors">
+              <button
+                onClick={() => scrollToSection("features-section")}
+                className="text-white/70 hover:text-white transition-colors"
+              >
                 Features
-              </Link>
-              <Link href="/solutions" className="text-white/70 hover:text-white transition-colors">
+              </button>
+              <button
+                onClick={() => scrollToSection("solutions-section")}
+                className="text-white/70 hover:text-white transition-colors"
+              >
                 Solutions
-              </Link>
-              <Link href="/enterprise" className="text-white/70 hover:text-white transition-colors">
-                Enterprise
-              </Link>
-              <Link href="/pricing" className="text-white/70 hover:text-white transition-colors">
-                Pricing
-              </Link>
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -69,14 +76,14 @@ export default function LandingPage() {
         </div>
 
         <div className="relative z-10 max-w-[1400px] mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center mb-20">
+          <div className="max-w-4xl mx-auto text-center mb-8">
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
               className="text-5xl sm:text-6xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-200 to-blue-200"
             >
-              GitHub, but better
+              Deve X Heave
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -109,7 +116,21 @@ export default function LandingPage() {
               </Link>
             </motion.div>
           </div>
-
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="text-center mb-12 mt-8"
+          >
+            <motion.h3
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.8 }}
+              className="text-base font-semibold text-white/60 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-purple-500 hover:to-blue-500 hover:underline transition-all"
+            >
+              with ❤️ by techy
+            </motion.h3>
+          </motion.div>
           {/* Featured UI Card */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -193,7 +214,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="relative py-32 overflow-hidden">
+      <section id="features-section" className="relative py-32 overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-[#0a0a0a]" />
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-gradient-radial from-purple-900/10 via-transparent to-transparent opacity-80" />
@@ -270,7 +291,7 @@ export default function LandingPage() {
       </section>
 
       {/* How It Works Section */}
-      <section className="relative py-32">
+      <section id="solutions-section" className="relative py-32">
         <div className="absolute inset-0 bg-[#0a0a0a]" />
         <div className="relative z-10 max-w-[1400px] mx-auto px-4">
           <div className="text-center mb-16">
@@ -508,9 +529,9 @@ const features = [
 ]
 
 const stats = [
-  { value: "10K+", label: "Developers" },
-  { value: "50K+", label: "Repositories" },
-  { value: "1M+", label: "Issues Managed" },
+  { value: "100+", label: "Developers" },
+  { value: "500+", label: "Repositories" },
+  { value: "1K+", label: "Issues Managed" },
   { value: "99.9%", label: "Uptime" },
 ]
 
@@ -524,7 +545,7 @@ const steps = [
     description: "Choose which repositories you want to enhance with StackLane's collaboration features.",
   },
   {
-    title: "Invite Your Team",
+    title: "Invite Your Team to Your Room",
     description: "Invite team members to join your workspace and start collaborating in real-time.",
   },
 ]

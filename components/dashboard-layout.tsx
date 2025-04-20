@@ -85,37 +85,19 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton>
-                    <Avatar className="w-6 h-6">
-                      <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg"} />
-                      <AvatarFallback>{userInitials}</AvatarFallback>
-                    </Avatar>
-                    <span>{user?.user_metadata?.name || user?.email}</span>
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile">Profile</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings">Settings</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
+        <SidebarFooter className="mb-10">
+          <div className="flex flex-col items-center gap-2 px-4 py-3 text-center">
+            <SidebarMenuButton>
+              <Avatar className="w-6 h-6 mx-auto">
+                <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg"} />
+                <AvatarFallback>{userInitials}</AvatarFallback>
+              </Avatar>
+              <span className="ml-1">{user?.user_metadata?.name || user?.email}</span>
+            </SidebarMenuButton>
+            <span className="text-sm text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-green-400">
+              Made with <span className="text-red-500">❤️</span> by Techy
+            </span>
+          </div>
         </SidebarFooter>
       </Sidebar>
 
