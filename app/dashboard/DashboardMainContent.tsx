@@ -14,6 +14,7 @@ import { GitPullRequest, GitMerge, Circle, CheckCircle2, Star, GitFork } from "l
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, BarChart, Bar } from "recharts"
 import { AuthLoading } from "@/components/auth-loading"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 type Repository = {
   id: number
@@ -36,7 +37,6 @@ type GitHubStats = {
   languages: { [key: string]: number }
   prStats: {
     merged: number
-    closed: number
     open: number
   }
   contributionData: {
@@ -54,13 +54,35 @@ type GitHubStats = {
 }
 
 export default function DashboardMainContent() {
+  const supabase = createClientComponentClient()
   const { user, loading: userLoading } = useSupabase()
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<GitHubStats | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'languages' | 'prStatus'>('languages')
+  const [loadingCommits, setLoadingCommits] = useState(true)
+  const [loadingIssues, setLoadingIssues] = useState(true)
+  const [loadingPRs, setLoadingPRs] = useState(true)
+  const [loadingRepos, setLoadingRepos] = useState(true)
+  const [loadingLanguages, setLoadingLanguages] = useState(true)
   const router = useRouter()
+
+  const loadingMessages = [
+    "Fetching your Repos, Commits & Pull Requests",
+    "Oh! Tooooo many commits 😵‍💫",
+    "Hold on a Sec Captain Commit",
+  ];
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % loadingMessages.length);
+    }, 2000); // Change message every 2 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -69,114 +91,264 @@ export default function DashboardMainContent() {
   }, [user, userLoading, router])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setInitialLoading(false)
-    }, 3000)
+    if (!userLoading && !loadingRepos && !loadingCommits && !loadingIssues && !loadingPRs && !loadingLanguages) {
+      setInitialLoading(false);
+    }
+  }, [userLoading, loadingRepos, loadingCommits, loadingIssues, loadingPRs, loadingLanguages]);
 
-    return () => clearTimeout(timer)
-  }, [])
+  useEffect(() => {
+    const preloadData = async () => {
+      if (!user) return;
+
+      try {
+        // Trigger background loading of pull requests and commits pages
+        await Promise.all([
+          fetch("/commits").then((res) => {
+            if (!res.ok) throw new Error("Failed to preload commits page");
+          }),
+          fetch("/pull-requests").then((res) => {
+            if (!res.ok) throw new Error("Failed to preload pull requests page");
+          }),
+        ]);
+
+        console.log("Background data preloading completed.");
+
+        // Log data saved to localStorage by the preloaded pages
+        const commitStats = localStorage.getItem("commitStats");
+        const pullRequestStats = {
+          totalPRs: localStorage.getItem("totalPullRequestsCount"),
+          mergedPRs: localStorage.getItem("mergedPullRequestsCount"),
+        };
+
+        console.log("Loaded commitStats from localStorage:", commitStats ? JSON.parse(commitStats) : "No data found");
+        console.log("Loaded pullRequestStats from localStorage:", pullRequestStats);
+      } catch (error) {
+        console.error("Error during background data preloading:", error);
+      } finally {
+        setLoadingCommits(false);
+        setLoadingPRs(false);
+      }
+    };
+
+    preloadData();
+  }, [user]);
 
   useEffect(() => {
     const fetchRepositories = async () => {
-      if (!user) return
+      if (!user) return;
 
       try {
-        setLoading(true)
-        const response = await fetch("/api/github/repos")
+        setLoadingRepos(true);
+        const response = await fetch("/api/github/repos");
 
         if (!response.ok) {
+          const errorDetails = await response.json();
           console.error("Error fetching repositories:", {
             status: response.status,
             statusText: response.statusText,
-          })
-          throw new Error("Failed to fetch repositories")
+            errorDetails,
+          });
+          throw new Error("Failed to fetch repositories");
         }
 
-        const data = await response.json()
-        setRepositories(data)
+        const data = await response.json();
+        console.log("Fetched repositories:", data); // Log the fetched repositories
+
+        // Incrementally add repositories to the state
+        for (const repo of data) {
+          setRepositories((prev) => [...prev, repo]);
+        }
       } catch (err) {
-        console.error("An error occurred while fetching repositories:", err)
-        setError("Failed to load your repositories. Please try again later.")
+        console.error("An error occurred while fetching repositories:", err);
+        setError("Failed to load your repositories. Please try again later.");
       } finally {
-        setLoading(false)
+        setLoadingRepos(false);
       }
-    }
+    };
 
     if (user) {
-      fetchRepositories()
+      fetchRepositories();
     }
-  }, [user])
+  }, [user]);
 
   useEffect(() => {
-    async function fetchGitHubStats() {
+    const fetchGitHubStats = async () => {
+      if (!user || !repositories.length) return;
+
       try {
-        const demoStats: GitHubStats = {
-          totalCommits: 265,
-          closedIssues: 48,
-          totalPRs: 86,
-          mergedPRs: 72,
-          ongoingPRs: 8,
-          languages: {
-            HTML: 32.31,
-            Java: 30.88,
-            JavaScript: 25.17,
-            CSS: 8.37,
-            "C++": 1.92,
-            TypeScript: 1.34
-          },
+        setLoadingPRs(true);
+        setLoadingCommits(true);
+        setLoadingIssues(true);
+
+        // Simulate fetching PRs
+        const storedTotalPRs = localStorage.getItem("totalPullRequestsCount");
+        const storedMergedPRs = localStorage.getItem("mergedPullRequestsCount");
+        const totalPRs = storedTotalPRs ? parseInt(storedTotalPRs, 10) : 0;
+        const mergedPRs = storedMergedPRs ? parseInt(storedMergedPRs, 10) : 0;
+
+        // Simulate fetching commits
+        const commitStatsJSON = localStorage.getItem("commitStats");
+        const commitStats = commitStatsJSON
+          ? JSON.parse(commitStatsJSON)
+          : { totalCommits: 0, currentStreak: 0, commitsPerMonth: [] };
+        const totalCommits = commitStats?.totalCommits || 0;
+        const currentStreak = commitStats?.currentStreak || 0;
+
+        // Simulate fetching issues
+        let closedIssues = 0;
+        const storedClosedIssues = localStorage.getItem("closedIssues");
+        if (storedClosedIssues) {
+          closedIssues = parseInt(storedClosedIssues, 10);
+        } else {
+          closedIssues = Math.floor(Math.random() * (100 - 20 + 1)) + 20;
+          localStorage.setItem("closedIssues", closedIssues.toString());
+        }
+
+        // Update stats incrementally
+        setStats((prev) => ({
+          ...prev,
+          totalCommits: totalCommits || 0,
+          closedIssues: closedIssues || 0,
+          totalPRs: totalPRs || 0,
+          mergedPRs: mergedPRs || 0,
+          ongoingPRs: (totalPRs || 0) - (mergedPRs || 0),
           prStats: {
-            merged: 72,
-            closed: 6,
-            open: 8
+            merged: mergedPRs || 0,
+            open: (totalPRs || 0) - (mergedPRs || 0),
           },
           contributionData: {
-            dates: ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"],
-            counts: [20, 15, 10, 25, 30, 45, 35, 40, 50, 45, 55, 60, 65]
+            dates: commitStats.commitsPerMonth?.map((entry: any) => entry.name) || [],
+            counts: commitStats.commitsPerMonth?.map((entry: any) => entry.commits) || [],
           },
-          totalStars: 1,
-          currentStreak: 1,
-          longestStreak: 9,
-          totalContributions: 191,
-          contributedRepos: 7,
-          contributionStartDate: "Aug 7, 2024",
-          currentStreakDate: "Apr 19",
-          longestStreakRange: "Dec 8, 2024 - Dec 16, 2024"
-        }
-        setStats(demoStats)
+          languages: prev?.languages || {},
+          totalStars: prev?.totalStars || 0,
+          contributedRepos: prev?.contributedRepos || 0,
+          totalContributions: prev?.totalContributions || 0,
+          currentStreak: commitStats.currentStreak || prev?.currentStreak || 0,
+          currentStreakDate: prev?.currentStreakDate || "",
+          contributionStartDate: prev?.contributionStartDate || "",
+          longestStreak: prev?.longestStreak || 0,
+          longestStreakRange: prev?.longestStreakRange || "",
+        }));
       } catch (error) {
-        console.error("Error fetching GitHub stats:", error)
-        setError("Failed to load your GitHub statistics. Please try again later.")
+        console.error("Error fetching GitHub stats:", error);
+        setError("Failed to load your GitHub statistics. Please try again later.");
       } finally {
-        setLoading(false)
+        setLoadingPRs(false);
+        setLoadingCommits(false);
+        setLoadingIssues(false);
       }
-    }
+    };
 
-    if (user) {
-      fetchGitHubStats()
+    fetchGitHubStats();
+  }, [user, repositories]);
+
+  useEffect(() => {
+    const fetchLanguages = async () => {
+      if (!user || !repositories.length) return;
+
+      try {
+        setLoadingLanguages(true);
+        const languages: { [key: string]: number } = {};
+
+        for (const repo of repositories) {
+          const response = await fetch(`/api/github/repos/${repo.full_name}/languages`);
+          if (!response.ok) continue;
+
+          const data = await response.json();
+          for (const [lang, value] of Object.entries(data)) {
+            if (typeof value === "number") {
+              languages[lang] = (languages[lang] || 0) + value;
+            }
+          }
+        }
+
+        setStats((prev) => ({
+          ...prev,
+          languages,
+          totalCommits: prev?.totalCommits || 0,
+          closedIssues: prev?.closedIssues || 0,
+          totalPRs: prev?.totalPRs || 0,
+          mergedPRs: prev?.mergedPRs || 0,
+          ongoingPRs: prev?.ongoingPRs || 0,
+          prStats: prev?.prStats || { merged: 0, open: 0 },
+          contributionData: prev?.contributionData || { dates: [], counts: [] },
+          totalStars: prev?.totalStars || 0,
+          contributedRepos: prev?.contributedRepos || 0,
+          totalContributions: prev?.totalContributions || 0,
+          currentStreak: prev?.currentStreak || 0,
+          currentStreakDate: prev?.currentStreakDate || "",
+          contributionStartDate: prev?.contributionStartDate || "",
+          longestStreak: prev?.longestStreak || 0,
+          longestStreakRange: prev?.longestStreakRange || "",
+        }));
+      } catch (error) {
+        console.error("Error fetching languages:", error);
+        setError("Failed to load language statistics. Please try again later.");
+      } finally {
+        setLoadingLanguages(false);
+      }
+    };
+
+    fetchLanguages();
+  }, [user, repositories]);
+
+  // Update this useEffect to correctly merge commitStats with existing stats
+  useEffect(() => {
+    const commitStatsJSON = localStorage.getItem("commitStats")
+    if (commitStatsJSON) {
+      const commitStats = JSON.parse(commitStatsJSON)
+      setStats(prev => ({
+        ...prev,
+        totalCommits: commitStats.totalCommits || prev?.totalCommits || 0,
+        currentStreak: commitStats.currentStreak || prev?.currentStreak || 0,
+        contributionData: {
+          ...prev?.contributionData,
+          dates: commitStats.commitsPerMonth?.map((entry: any) => entry.date) || prev?.contributionData?.dates || [],
+          counts: commitStats.commitsPerMonth?.map((entry: any) => entry.count) || prev?.contributionData?.counts || [],
+        },
+        // Ensure other fields remain intact
+        closedIssues: prev?.closedIssues || 0,
+        totalPRs: prev?.totalPRs || 0,
+        mergedPRs: prev?.mergedPRs || 0,
+        ongoingPRs: prev?.ongoingPRs || 0,
+        languages: prev?.languages || {},
+        prStats: prev?.prStats || { merged: 0, open: 0 },
+        totalStars: prev?.totalStars || 0,
+        contributedRepos: prev?.contributedRepos || 0,
+        totalContributions: prev?.totalContributions || 0,
+        currentStreakDate: prev?.currentStreakDate || "",
+        contributionStartDate: prev?.contributionStartDate || "",
+        longestStreak: prev?.longestStreak || 0,
+        longestStreakRange: prev?.longestStreakRange || "",
+      }))
     }
-  }, [user])
+  }, [])
+
+  // Add this useEffect to load repoStats from localStorage (for debugging or future use)
+  useEffect(() => {
+    const repoStatsJSON = localStorage.getItem("repoStats")
+    if (repoStatsJSON) {
+      const repoStats = JSON.parse(repoStatsJSON)
+      console.log("Loaded repoStats from localStorage:", repoStats)
+      // Optionally update state if needed
+    }
+  }, [])
+
+  if (loadingRepos && repositories.length === 0) {
+    return (
+      <div className="w-full h-screen">
+        <AuthLoading message="Loading your repositories..." />
+      </div>
+    );
+  }
 
   if (initialLoading) {
     return (
       <div className="w-full h-screen">
-        <AuthLoading message="Customising your Dashboard" />
+        <AuthLoading message={loadingMessages[currentMessageIndex]} />
       </div>
-    )
-  }
-
-  if (userLoading || loading) {
-    return (
-      <DashboardLayout>
-        <div className="p-6 space-y-6 w-full">
-          <Skeleton className="h-24 w-full" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full" />
-            ))}
-          </div>
-        </div>
-      </DashboardLayout>
-    )
+    );
   }
 
   if (error) {
@@ -190,7 +362,43 @@ export default function DashboardMainContent() {
           </Alert>
         </div>
       </DashboardLayout>
-    )
+    );
+  }
+
+  if (!stats) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 w-full">
+          <Skeleton className="h-24 w-full" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full" />
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (repositories.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 w-full">
+          <div className="text-center py-12">
+            <h3 className="text-xl font-medium mb-2">No repositories found</h3>
+            <p className="text-white/60 mb-6">You don't have any repositories on GitHub or we couldn't access them.</p>
+            <a
+              href="https://github.com/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-500 text-white rounded-md hover:opacity-90 transition-all text-sm font-semibold"
+            >
+              Create a new repository
+            </a>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (
@@ -303,135 +511,165 @@ export default function DashboardMainContent() {
         </Card>
 
         {/* Language Distribution & PR Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Most Used Languages Card */}
-          <Card className="bg-[#111] border-[#222]">
-            <CardHeader>
-              <CardTitle className="text-white">Most Used Languages</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: 'HTML', value: stats?.languages?.HTML || 0, color: '#e34c26' },
-                        { name: 'Java', value: stats?.languages?.Java || 0, color: '#b07219' },
-                        { name: 'JavaScript', value: stats?.languages?.JavaScript || 0, color: '#f1e05a' },
-                        { name: 'CSS', value: stats?.languages?.CSS || 0, color: '#563d7c' },
-                        { name: 'C++', value: stats?.languages?.["C++"] || 0, color: '#f34b7d' },
-                        { name: 'TypeScript', value: stats?.languages?.TypeScript || 0, color: '#3178c6' }
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={5}
-                      dataKey="value"
-                      labelLine={{ stroke: '#555', strokeWidth: 1, opacity: 0.8 }}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(2)}%`}
-                    >
-                      {[
-                        { color: '#e34c26', opacity: 0.8 }, // HTML - orange-red
-                        { color: '#b07219', opacity: 0.8 }, // Java - brown
-                        { color: '#f1e05a', opacity: 0.8 }, // JavaScript - yellow
-                        { color: '#563d7c', opacity: 0.8 }, // CSS - purple
-                        { color: '#f34b7d', opacity: 0.8 }, // C++ - pink
-                        { color: '#3178c6', opacity: 0.8 }  // TypeScript - blue
-                      ].map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color} 
-                          fillOpacity={entry.opacity}
-                          stroke="#222"
-                          strokeWidth={1}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(17, 17, 17, 0.9)',
-                        border: '1px solid #222',
-                        borderRadius: '8px',
-                        color: '#fff'
-                      }}
-                      formatter={(value, name) => [`${value}%`, name]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 gap-6">
+          {/* Tabs */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setActiveTab('languages')}
+              className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+                activeTab === 'languages'
+                  ? 'bg-gradient-to-r from-slate-900/80 to-slate-800/80 text-blue-400 shadow-lg shadow-black/20 border border-slate-700/50'
+                  : 'text-slate-400 hover:text-slate-300'
+              }`}
+            >
+              Most Used Languages
+            </button>
+            <button
+              onClick={() => setActiveTab('prStatus')}
+              className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+                activeTab === 'prStatus'
+                  ? 'bg-gradient-to-r from-slate-900/80 to-slate-800/80 text-blue-400 shadow-lg shadow-black/20 border border-slate-700/50'
+                  : 'text-slate-400 hover:text-slate-300'
+              }`}
+            >
+              PR Status
+            </button>
+          </div>
 
-          <Card className="bg-[#111] border-[#222]">
-            <CardHeader>
-              <CardTitle className="text-white">Pull Request Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
+          {activeTab === 'languages' ? (
+            <Card className="border border-indigo-500/20 bg-black/80 backdrop-blur-xl shadow-xl shadow-indigo-500/10">
+              <CardHeader>
+                <CardTitle className="text-lg text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
+                  Languages Used
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-8 h-[500px]">
+                  <div className="h-full w-[500px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={Object.entries(stats?.languages || {}).map(([name, value]) => ({
+                            name,
+                            value,
+                          }))}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={80}
+                          outerRadius={160}
+                          paddingAngle={3}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          {Object.entries(stats?.languages || {}).map(([name], index) => (
+                            <Cell
+                              key={`cell-lang-${index}`}
+                              fill={`hsl(${(index * 360) / Object.keys(stats?.languages || {}).length}, 70%, 50%)`}
+                              stroke="#222"
+                              strokeWidth={1}
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                    {Object.entries(stats?.languages || {}).map(([name, value], index) => (
+                      <div
+                        key={name}
+                        className="flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:bg-slate-800/30"
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{
+                              background: `hsl(${(index * 360) / Object.keys(stats?.languages || {}).length}, 70%, 50%)`,
+                            }}
+                          />
+                          <span className="font-medium text-slate-200">{name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="text-slate-400">{value} bytes</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border border-indigo-500/20 bg-black/80 backdrop-blur-xl shadow-xl shadow-indigo-500/10">
+              <CardHeader>
+                <CardTitle className="text-lg text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
+                  Pull Request Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-8 h-[500px]">
+                  <div className="h-full w-[500px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <defs>
+                          <linearGradient id="gradient-merged" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#9333EA" stopOpacity={0.95} />
+                            <stop offset="100%" stopColor="#7E22CE" stopOpacity={0.9} />
+                          </linearGradient>
+                          <linearGradient id="gradient-open" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.95} />
+                            <stop offset="100%" stopColor="#2563EB" stopOpacity={0.9} />
+                          </linearGradient>
+                        </defs>
+                        <Pie
+                          data={[
+                            { name: 'Merged', value: stats?.prStats.merged || 0 },
+                            { name: 'Open', value: stats?.prStats.open || 0 },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={80}
+                          outerRadius={160}
+                          paddingAngle={3}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          <Cell fill="url(#gradient-merged)" stroke="#222" strokeWidth={1} />
+                          <Cell fill="url(#gradient-open)" stroke="#222" strokeWidth={1} />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                    {[
                       { name: 'Merged', value: stats?.prStats.merged || 0 },
-                      { name: 'Closed', value: stats?.prStats.closed || 0 },
-                      { name: 'Open', value: stats?.prStats.open || 0 }
-                    ]}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    onMouseMove={(e) => {
-                      if (e?.isTooltipActive) {
-                        const el = document.querySelector(`[data-bar-index="${e.activeTooltipIndex}"]`);
-                        if (el) {
-                          el.classList.add('animate-pulse-subtle');
-                        }
-                      } else {
-                        document.querySelectorAll('[data-bar-index]').forEach(el => {
-                          el.classList.remove('animate-pulse-subtle');
-                        });
-                      }
-                    }}
-                  >
-                    <XAxis
-                      dataKey="name"
-                      stroke="#666"
-                      tick={{ fill: '#fff' }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis hide />
-                    <Tooltip
-                      cursor={false}
-                      contentStyle={{
-                        backgroundColor: '#111',
-                        border: '1px solid #222',
-                        borderRadius: '8px',
-                        color: '#fff'
-                      }}
-                      labelStyle={{ color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-                    <Bar
-                      dataKey="value"
-                      radius={[4, 4, 0, 0]}
-                    >
-                      {[
-                        { name: 'Merged', color: '#9333ea' },
-                        { name: 'Closed', color: '#ef4444' },
-                        { name: 'Open', color: '#3b82f6' }
-                      ].map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color}
-                          style={{ filter: 'brightness(1)' }}
-                          className="transition-all duration-300 hover:filter hover:brightness-125"
-                          data-bar-index={index}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+                      { name: 'Open', value: stats?.prStats.open || 0 },
+                    ].map((entry, index) => (
+                      <div
+                        key={entry.name}
+                        className="flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:bg-slate-800/30"
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{
+                              background: index === 0 ? `linear-gradient(to bottom right, #9333EA, #7E22CE)` : `linear-gradient(to bottom right, #3B82F6, #2563EB)`,
+                            }}
+                          />
+                          <span className="font-medium text-slate-200">{entry.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="text-slate-400">{entry.value} PRs</span>
+                          <span className="text-slate-500">•</span>
+                          <span className="text-slate-400 w-[60px] text-right">
+                            {((entry.value / (stats?.totalPRs || 1)) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Developer Stats Card */}
@@ -535,37 +773,6 @@ export default function DashboardMainContent() {
               <p className="text-sm text-gray-400 mt-2">{stats?.longestStreakRange}</p>
             </CardContent>
           </Card>
-        </div>
-
-        <div className="mt-6">
-          <h2 className="text-2xl font-bold mb-6 text-white">Your Repositories</h2>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : repositories.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {repositories.map((repo) => (
-              <RepoCard key={repo.id} repository={repo} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <h3 className="text-xl font-medium mb-2">No repositories found</h3>
-            <p className="text-white/60 mb-6">You don't have any repositories on GitHub or we couldn't access them.</p>
-            <a
-              href="https://github.com/new"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-500 text-white rounded-md hover:opacity-90 transition-all text-sm font-semibold"
-            >
-              Create a new repository
-            </a>
-          </div>
-        )}
         </div>
       </div>
     </DashboardLayout>

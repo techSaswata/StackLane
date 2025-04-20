@@ -2,7 +2,7 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest, context: { params: { slug?: string[] } }) {
+export async function GET(request: NextRequest, { params }: { params: any }) {
   const supabase = createRouteHandlerClient({ cookies });
 
   // Check if user is authenticated
@@ -15,22 +15,15 @@ export async function GET(request: NextRequest, context: { params: { slug?: stri
   }
 
   try {
-    // Await params to ensure it's resolved
-    const { params } = context;
-
-    // Get GitHub access token from session
-    const accessToken = session.provider_token;
-
-    if (!accessToken) {
-      return NextResponse.json({ error: "GitHub token not found" }, { status: 401 });
-    }
+    // Await params to ensure it's resolved before accessing its properties
+    const resolvedParams = await params;
 
     // Validate slug
-    if (!params || !params.slug || params.slug.length === 0) {
+    if (!resolvedParams || !resolvedParams.slug || resolvedParams.slug.length === 0) {
       return NextResponse.json({ error: "Slug parameter is required" }, { status: 400 });
     }
 
-    const slug = params.slug;
+    const slug = resolvedParams.slug;
     const repoFullName = slug.join("/");
 
     // Determine the endpoint based on the URL pattern
@@ -40,6 +33,13 @@ export async function GET(request: NextRequest, context: { params: { slug?: stri
     if (slug.length > 2) {
       const resource = slug[2];
       endpoint = `https://api.github.com/repos/${slug[0]}/${slug[1]}/${resource}`;
+    }
+
+    // Get GitHub access token from session
+    const accessToken = session.provider_token;
+
+    if (!accessToken) {
+      return NextResponse.json({ error: "GitHub token not found" }, { status: 401 });
     }
 
     // Fetch data from GitHub API

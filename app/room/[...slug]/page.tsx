@@ -97,11 +97,19 @@ export default function RoomPage() {
         {repository && (
           <div className="h-full flex flex-col w-full">
             <div className="p-8 pb-4 flex-shrink-0 bg-gradient-to-r from-black via-[#0a0a0a] to-black border-b border-indigo-500/20">
-              <div className="w-full">
-                <h1 className="text-2xl font-bold flex items-center gap-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500">
-                  {repository.owner.login}/{repository.name}
-                </h1>
-                <p className="text-slate-400 mt-1">{repository.description}</p>
+              <div className="w-full flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold flex items-center gap-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500">
+                    {repository.owner.login}/{repository.name}
+                  </h1>
+                  <p className="text-slate-400 mt-1">{repository.description}</p>
+                </div>
+                <button
+                  onClick={() => window.open(repository.html_url, "_blank")}
+                  className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-all text-sm font-semibold"
+                >
+                  View on GitHub
+                </button>
               </div>
             </div>
 

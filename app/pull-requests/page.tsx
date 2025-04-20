@@ -146,7 +146,7 @@ export default function PullRequestsPage() {
               full_name: fullName
             },
             labels: item.labels || [],
-            merged: item.pull_request?.merged || false
+            merged: !!item.pull_request?.merged_at // Check for the presence of merged_at
           }
         })
         
@@ -184,6 +184,16 @@ export default function PullRequestsPage() {
         })
         
         setPullRequests(sortedPRs)
+
+        // Calculate total pull requests count
+        const totalPullRequestsCount = prs.length;
+
+        // Calculate merged pull requests count
+        const mergedPullRequestsCount = prs.filter((pr: PullRequest) => pr.merged).length;
+
+        // Save total and merged pull requests count to localStorage
+        localStorage.setItem("totalPullRequestsCount", JSON.stringify(totalPullRequestsCount));
+        localStorage.setItem("mergedPullRequestsCount", JSON.stringify(mergedPullRequestsCount));
       } catch (error) {
         console.error("Error fetching pull requests:", error)
         setError("Failed to load your pull requests. Please try again later.")
@@ -196,6 +206,13 @@ export default function PullRequestsPage() {
       fetchPullRequests()
     }
   }, [user, supabase])
+
+  // Persist repoStats to localStorage for fetching by another page
+  useEffect(() => {
+    if (repoStats.length) {
+      localStorage.setItem("repoStats", JSON.stringify(repoStats))
+    }
+  }, [repoStats])
 
   if (userLoading) {
     return (
@@ -613,4 +630,4 @@ function PRCard({ pr }: { pr: PullRequest }) {
       </CardContent>
     </Card>
   )
-} 
+}

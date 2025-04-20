@@ -209,6 +209,14 @@ export default function CommitsPage() {
           totalCommits: allCommits.length,
           lastCommitDate: allCommits[0]?.commit.author.date || ""
         })
+
+        // Save totalCommits, currentStreak, commitsPerMonth, and commitsPerRepo to localStorage
+        localStorage.setItem("commitStats", JSON.stringify({
+          totalCommits: allCommits.length,
+          currentStreak: streak,
+          commitsPerMonth: commitsPerMonthData, // Save monthly commit data
+          commitsPerRepo: commitsPerRepoData   // Save repository commit data
+        }))
       } catch (error) {
         console.error("Error fetching commits:", error)
         setError("Failed to load your commits. Please try again later.")
@@ -534,4 +542,4 @@ export default function CommitsPage() {
       </div>
     </>
   )
-} 
+}
