@@ -11,8 +11,8 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Redirect to /dashboard if logged in and accessing /
-  if (session && req.nextUrl.pathname === "/") {
+  // Redirect to /dashboard if logged in and accessing the login or root page
+  if (session && (req.nextUrl.pathname === "/" || req.nextUrl.pathname === "/login")) {
     const dashboardUrl = new URL("/dashboard", req.url);
 
     // Check if the first_time_login cookie is already set
@@ -22,6 +22,12 @@ export async function middleware(req: NextRequest) {
       res.cookies.set("first_time_login", "true", { path: "/", httpOnly: false });
     }
 
+    return NextResponse.redirect(dashboardUrl);
+  }
+
+  // Redirect to /dashboard if logged in and accessing /auth/callback
+  if (session && req.nextUrl.pathname === "/auth/callback") {
+    const dashboardUrl = new URL("/dashboard", req.url);
     return NextResponse.redirect(dashboardUrl);
   }
 
