@@ -317,14 +317,11 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
 
   const handleMessageClick = (e: React.MouseEvent, message: Message) => {
     e.stopPropagation(); // Prevent triggering the outside click handler
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    
-    // Position the popup right next to the message bubble
-    const isUserMessage = message.user_id === user?.id;
-    
+
+    // Set a fixed position for the popup on the left
     setPopupPosition({
-      top: rect.top, // Align with the top of the message
-      left: isUserMessage ? rect.left - 160 : rect.right, // Position right next to the message
+      top: 250, // Fixed top position (adjust as needed)
+      left: 300, // Fixed left position
     });
     setSelectedMessage(message);
   };
