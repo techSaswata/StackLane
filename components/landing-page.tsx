@@ -85,7 +85,7 @@ export default function LandingPage() {
               className="text-xl text-white/70 mb-8 max-w-3xl mx-auto"
             >
               A complete developer collaboration platform that enhances GitHub with real-time chat, visual project
-              management, and powerful analytics — all without writing a single line of code.
+              management, and powerful analytics — A platform by developers, for developers.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
