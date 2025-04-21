@@ -138,9 +138,13 @@ export default function DashboardMainContent() {
 
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
-  const handleAuthError = (status: number) => {
-    if (status === 401 || status === 403) {
+  const handleAuthError = async (status: number) => {
+    if (status === 401) {
       router.push("/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.");
+      return true;
+    }
+    if (status === 403) {
+      await handleApiLimitSignOut();
       return true;
     }
     return false;
@@ -233,22 +237,11 @@ export default function DashboardMainContent() {
         const response = await fetch("/api/github/repos");
 
         if (!response.ok) {
-          // Handle GitHub API rate limit error
-          if (response.status === 403) {
-            const errorData = await response.json();
-            if (errorData.message?.includes('API rate limit exceeded')) {
-              await handleApiLimitSignOut();
-              return;
-            }
-          }
-
-          // Handle other GitHub authentication errors
-          if (response.status === 401) {
-            await supabase.auth.signOut();
-            router.push("/login?message=Your%20GitHub%20access%20has%20expired.%20Please%20sign%20in%20again%20to%20continue.");
+          if (await handleAuthError(response.status)) {
             return;
           }
 
+          // Handle other GitHub authentication errors
           const errorDetails = await response.json();
           console.error("Error fetching repositories:", {
             status: response.status,
