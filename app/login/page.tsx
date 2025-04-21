@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Github, AlertCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { AuthLoading } from "@/components/auth-loading";
 
-export default function LoginPage() {
+function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [authInProgress, setAuthInProgress] = useState(false);
   const router = useRouter();
@@ -132,5 +132,13 @@ export default function LoginPage() {
         </Card>
       </div>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<AuthLoading message="Loading..." />}>
+      <LoginContent />
+    </Suspense>
   );
 }

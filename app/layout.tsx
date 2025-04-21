@@ -16,10 +16,8 @@ validateEnv()
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "StackLane - GitHub Enhanced for Developers",
-  description:
-    "A collaborative platform for developers to manage projects, chat, and track issues without writing code.",
-    generator: 'v0.dev'
+  title: "StackLane - Deve X Heave",
+  description: "Heaven for developers to manage projects, chat, and track issues with Github enhanced Dashboard"
 }
 
 export default function RootLayout({
