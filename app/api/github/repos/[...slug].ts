@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
     const authToken = cookies.get('sb-bysyalujziclkdjmjggn-auth-token')?.value;
 
     if (!authToken) {
-      return NextResponse.json({ error: "Auth token not found" }, { status: 401 });
+      return NextResponse.json({ error: "GitHub authentication required" }, { status: 401 });
     }
 
     const slug = req.nextUrl.pathname.split("/").slice(-1)[0];
@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
         Accept: "application/vnd.github.v3+json",
       },
     });
+
+    if (response.status === 401) {
+      return NextResponse.json({ error: "GitHub token expired" }, { status: 401 });
+    }
 
     if (!response.ok) {
       return NextResponse.json({ error: "Failed to fetch data from GitHub" }, { status: response.status });

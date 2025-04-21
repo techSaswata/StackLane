@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Github } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Github, AlertCircle } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -10,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -20,6 +22,16 @@ export default function LoginPage() {
   const [authInProgress, setAuthInProgress] = useState(false);
   const router = useRouter();
   const supabase = createClientComponentClient();
+  const searchParams = useSearchParams();
+  const message = searchParams.get("message");
+
+  useEffect(() => {
+    // Clear loading states when showing error message
+    if (message) {
+      setLoading(false);
+      setAuthInProgress(false);
+    }
+  }, [message]);
 
   const handleGitHubLogin = async () => {
     console.log("GitHub login function called");
@@ -63,6 +75,14 @@ export default function LoginPage() {
 
         {/* Card with raised z-index to be above background */}
         <Card className="w-full max-w-md border-[#222] bg-[#111] relative z-10">
+          {message && (
+            <div className="p-4">
+              <Alert variant="destructive" className="border-2 border-red-500/20 bg-red-500/10">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{decodeURIComponent(message)}</AlertDescription>
+              </Alert>
+            </div>
+          )}
           <CardHeader className="space-y-1">
             <div className="flex justify-center mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-500 rounded-xl flex items-center justify-center">

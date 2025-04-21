@@ -130,6 +130,14 @@ export default function DashboardMainContent() {
   ];
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
+  const handleAuthError = (status: number) => {
+    if (status === 401 || status === 403) {
+      router.push("/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.");
+      return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % loadingMessages.length);
@@ -200,6 +208,14 @@ export default function DashboardMainContent() {
         const response = await fetch("/api/github/repos");
 
         if (!response.ok) {
+          // Handle GitHub authentication errors
+          if (response.status === 401) {
+            // Clear the auth session since GitHub token is invalid
+            await supabase.auth.signOut();
+            router.push("/login?message=Your%20GitHub%20access%20has%20expired.%20Please%20sign%20in%20again%20to%20continue.");
+            return;
+          }
+
           const errorDetails = await response.json();
           console.error("Error fetching repositories:", {
             status: response.status,
@@ -223,7 +239,6 @@ export default function DashboardMainContent() {
         setLoadingRepos(false);
       }
     };
-
 
     if (user) {
       fetchRepositories();
