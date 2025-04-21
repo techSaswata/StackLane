@@ -27,13 +27,13 @@ export default function LandingPage() {
             <div className="hidden md:flex items-center gap-6">
               <button
                 onClick={() => scrollToSection("features-section")}
-                className="text-white/70 hover:text-white transition-colors"
+                className="text-lg font-bold tracking-wide text-white/70 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-purple-500 hover:to-blue-500 transition-all transform hover:scale-105"
               >
                 Features
               </button>
               <button
                 onClick={() => scrollToSection("solutions-section")}
-                className="text-white/70 hover:text-white transition-colors"
+                className="text-lg font-bold tracking-wide text-white/70 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-purple-500 hover:to-blue-500 transition-all transform hover:scale-105"
               >
                 Solutions
               </button>
@@ -89,10 +89,25 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-xl text-white/70 mb-8 max-w-3xl mx-auto"
+              className="text-xl text-white/70 mb-8 max-w-3xl mx-auto font-medium tracking-wide"
             >
-              A complete developer collaboration platform that enhances GitHub with real-time chat, visual project
-              management, and powerful analytics — A platform by developers, for developers.
+              <span className="font-sans">
+                A complete developer collaboration platform that enhances GitHub with real-time chat, visual project
+                management, and powerful analytics.
+              </span>
+              <br />
+              <motion.span 
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatType: "reverse"
+                }}
+                className="block text-center text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent drop-shadow-lg hover:scale-105 transition-transform duration-300 mt-4"
+              >
+                - A Heaven for Devs
+              </motion.span>
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
