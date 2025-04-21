@@ -146,6 +146,15 @@ export default function DashboardMainContent() {
     return false;
   };
 
+  const handleApiLimitSignOut = async () => {
+    try {
+      await supabase.auth.signOut()
+      router.push("/api-limit")
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
+  }
+
   useEffect(() => {
     const messageInterval = setInterval(() => {
       setCurrentMessageIndex((prev) => (prev + 1) % CustomLoadingMessages.length);
@@ -224,9 +233,17 @@ export default function DashboardMainContent() {
         const response = await fetch("/api/github/repos");
 
         if (!response.ok) {
-          // Handle GitHub authentication errors
+          // Handle GitHub API rate limit error
+          if (response.status === 403) {
+            const errorData = await response.json();
+            if (errorData.message?.includes('API rate limit exceeded')) {
+              await handleApiLimitSignOut();
+              return;
+            }
+          }
+
+          // Handle other GitHub authentication errors
           if (response.status === 401) {
-            // Clear the auth session since GitHub token is invalid
             await supabase.auth.signOut();
             router.push("/login?message=Your%20GitHub%20access%20has%20expired.%20Please%20sign%20in%20again%20to%20continue.");
             return;
