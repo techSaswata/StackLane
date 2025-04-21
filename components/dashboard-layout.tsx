@@ -140,7 +140,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                   <Link href="/dashboard">Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/room">Your Rooms</Link>
+                  <Link href="/rooms">Your Rooms</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/commits">Your Commits</Link>
