@@ -49,8 +49,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     { name: "Rooms", href: "/repositories", icon: Github },
     { name: "Pull Requests", href: "/pull-requests", icon: GitBranch },
     { name: "Commits", href: "/commits", icon: GitCommit },
-    // { name: "Messages", href: "/messages", icon: MessageSquare },
-    // { name: "Settings", href: "/settings", icon: Settings },
   ]
 
   const userInitials = user?.email ? user.email.substring(0, 2).toUpperCase() : "U"
@@ -134,6 +132,15 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/room">Your Rooms</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/commits">Your Commits</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/pull-requests">Pull Requests</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
