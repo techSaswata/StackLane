@@ -1041,10 +1041,10 @@ export default function DashboardMainContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-8 h-[500px]">
-                    <div className="h-full w-[500px]">
+                  <div className="flex flex-col lg:flex-row items-center justify-between gap-8 h-auto lg:h-[500px]">
+                    <div className="h-[350px] lg:h-full w-full lg:w-[500px] max-w-full px-4 sm:px-0">
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
+                        <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                           <Pie
                             data={Object.entries(stats?.languages || {}).map(([name, value]) => ({
                               name,
@@ -1052,8 +1052,8 @@ export default function DashboardMainContent() {
                             }))}
                             cx="50%"
                             cy="50%"
-                            innerRadius={80}
-                            outerRadius={160}
+                            innerRadius="35%"
+                            outerRadius="70%"
                             paddingAngle={3}
                             dataKey="value"
                             nameKey="name"
@@ -1111,10 +1111,10 @@ export default function DashboardMainContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-8 h-[500px]">
-                    <div className="h-full w-[500px]">
+                  <div className="flex flex-col lg:flex-row items-center justify-between gap-8 h-[500px]">
+                    <div className="h-[350px] lg:h-full w-full lg:w-[500px] max-w-full px-4 sm:px-0">
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
+                      <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                           <defs>
                             <linearGradient id="gradient-merged" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#9333EA" stopOpacity={0.95} />
@@ -1132,8 +1132,8 @@ export default function DashboardMainContent() {
                             ]}
                             cx="50%"
                             cy="50%"
-                            innerRadius={80}
-                            outerRadius={160}
+                            innerRadius="35%"
+                            outerRadius="70%"
                             paddingAngle={3}
                             dataKey="value"
                             nameKey="name"
