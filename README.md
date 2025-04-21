@@ -1,15 +1,15 @@
-# StackLane
+# StackLane - Deve X Heave ✨
 
 **What is StackLane?**  
 StackLane is a developer collaboration platform that enhances GitHub with real-time chat, visual project management, and powerful analytics.  
 *(Yes, it’s as cool as it sounds!)*
 
 **How does it work?**  
-It turns your everyday code grind into an epic journey across repositories, issues, and pull requests – all while cracking a smile.  
-StackLane connects your GitHub chaos into a symphony of real-time collaboration and laughter.
+It turns your everyday code grind into an epic journey across repositories, issues, and pull requests – all while cracking a smile & your GitHub chaos into a symphony of real-time collaboration and laughter.
 
+## Demo
 **Where’s the magic happening?**  
-Check out the demo below to watch StackLane in action:
+StackLane in action:
 
 ![Demo GIF](path/to/demo.gif)
 
@@ -41,7 +41,7 @@ Check out the demo below to watch StackLane in action:
 Absolutely!
 
 <!-- Modified hosted website link -->
-<h2>Check out the live platform at <a href="https://stacklane.vercel.app">stacklane.vercel.app</a> – Deve X Heave</h2>
+<h2>Check out the live platform at <a href="https://stacklane.vercel.app">stacklane.vercel.app</a> – Deve X Heave ✨ </h2> 
 
 **Is it difficult?**  
 Not at all – if you can code, you can laugh while you code!

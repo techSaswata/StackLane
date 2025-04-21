@@ -87,12 +87,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         </SidebarContent>
         <SidebarFooter className="mb-10">
           <div className="flex flex-col items-center gap-2 px-4 py-3 text-center">
-            <SidebarMenuButton>
-              <Avatar className="w-6 h-6 mx-auto">
+            <SidebarMenuButton className="flex items-center gap-2 justify-center w-full">
+              <Avatar className="w-6 h-6">
                 <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg"} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
-              <span className="ml-1">{user?.user_metadata?.name || user?.email}</span>
+              <span>{user?.user_metadata?.name || user?.email}</span>
             </SidebarMenuButton>
             <span className="text-sm text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-green-400">
               Made with <span className="text-red-500">❤️</span> by Techy
