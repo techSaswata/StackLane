@@ -32,6 +32,17 @@ export function IssuesPanel({ repoFullName }: { repoFullName: string }) {
   const [issues, setIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loadingPercentage, setLoadingPercentage] = useState(0)
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (loading) {
+      interval = setInterval(() => {
+        setLoadingPercentage((prev) => (prev < 100 ? prev + 20 : 0))
+      }, 200)
+    }
+    return () => clearInterval(interval)
+  }, [loading])
 
   useEffect(() => {
     const fetchIssues = async () => {
@@ -58,11 +69,17 @@ export function IssuesPanel({ repoFullName }: { repoFullName: string }) {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-lg" />
-        ))}
-      </div>
+      <Card className="border border-indigo-500/20 bg-black/80 backdrop-blur-xl shadow-xl shadow-indigo-500/10 overflow-hidden rounded-xl h-full flex flex-col w-full">
+        <CardContent className="p-6 flex flex-col h-full w-full">
+          <h2 className="text-xl font-semibold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Issues</h2>
+          <div className="flex items-center justify-center h-[400px] relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-400"></div>
+            <div className="absolute flex items-center justify-center h-16 w-16">
+              <span className="text-cyan-400 font-bold text-lg">{loadingPercentage}%</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -76,14 +93,14 @@ export function IssuesPanel({ repoFullName }: { repoFullName: string }) {
   }
 
   return (
-    <Card className="border-[#222] bg-[#111] h-full flex flex-col w-full">
-      <CardContent className="p-4 flex flex-col h-full w-full">
-        <div className="flex justify-between items-center mb-4 w-full">
-          <h2 className="text-xl font-semibold">Issues</h2>
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90">
+    <Card className="border border-indigo-500/20 bg-black/80 backdrop-blur-xl shadow-xl shadow-indigo-500/10 overflow-hidden rounded-xl h-full flex flex-col w-full">
+      <CardContent className="p-6 flex flex-col h-full w-full">
+        <div className="flex justify-between items-center mb-6 w-full">
+          <h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Issues</h2>
+          {/* <Button className="bg-gradient-to-r from-purple-600 to-blue-500 hover:opacity-90">
             <Plus className="h-4 w-4 mr-2" />
             New Issue
-          </Button>
+          </Button> */}
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0 space-y-4 w-full">
@@ -93,7 +110,7 @@ export function IssuesPanel({ repoFullName }: { repoFullName: string }) {
             </div>
           ) : (
             issues.map((issue) => (
-              <Card key={issue.id} className="border-[#222] bg-[#111] hover:border-purple-500/50 transition-colors">
+              <Card key={issue.id} className="border border-indigo-500/20 bg-black/80 backdrop-blur-xl overflow-hidden rounded-xl transition-colors hover:border-cyan-400/50">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
                     <div className="flex-1">

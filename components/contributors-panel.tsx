@@ -20,6 +20,7 @@ export function ContributorsPanel({ repoFullName }: { repoFullName: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [totalContributions, setTotalContributions] = useState(0)
+  const [loadingPercentage, setLoadingPercentage] = useState(0)
 
   useEffect(() => {
     const fetchContributors = async () => {
@@ -48,13 +49,29 @@ export function ContributorsPanel({ repoFullName }: { repoFullName: string }) {
     fetchContributors()
   }, [repoFullName])
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (loading) {
+      interval = setInterval(() => {
+        setLoadingPercentage(prev => prev < 100 ? prev + 20 : 0);
+      }, 200);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
+
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full rounded-lg" />
-        ))}
-      </div>
+      <Card className="border border-indigo-500/20 bg-black/80 backdrop-blur-xl shadow-xl shadow-indigo-500/10 overflow-hidden rounded-xl h-full flex flex-col w-full">
+        <CardContent className="p-6 flex flex-col h-full w-full">
+          <h2 className="text-xl font-semibold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Contributors</h2>
+          <div className="flex items-center justify-center h-[400px] relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-400"></div>
+            <div className="absolute flex items-center justify-center h-16 w-16">
+              <span className="text-cyan-400 font-bold text-lg">{loadingPercentage}%</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 

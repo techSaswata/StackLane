@@ -49,6 +49,7 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [popupPosition, setPopupPosition] = useState<{ top: number; left: number } | null>(null);
+  const [loadingPercentage, setLoadingPercentage] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -173,6 +174,16 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [selectedMessage, popupPosition]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (loading) {
+      interval = setInterval(() => {
+        setLoadingPercentage(prev => prev < 100 ? prev + 20 : 0);
+      }, 200);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -353,8 +364,11 @@ export function ChatPanel({ repoFullName }: { repoFullName: string }) {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {loading ? (
-              <div className="flex justify-center items-center h-full">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
+              <div className="flex items-center justify-center h-[500px] relative">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-400"></div>
+                <div className="absolute flex items-center justify-center h-16 w-16">
+                  <span className="text-cyan-400 font-bold text-lg">{loadingPercentage}%</span>
+                </div>
               </div>
             ) : messages.length === 0 ? (
               <div className="flex justify-center items-center h-full text-white/60">

@@ -39,6 +39,12 @@ type CommitStats = {
   lastCommitDate: string
 }
 
+const loadingMessages = [
+  "Oh! Tooooo many commits 😵‍💫",
+  "Hold on a Sec Captain Commit",
+  "Made with ❤️ by Techy",
+];
+
 export default function CommitsPage() {
   const { user, loading: userLoading } = useSupabase()
   const [commits, setCommits] = useState<Commit[]>([])
@@ -57,6 +63,7 @@ export default function CommitsPage() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'repository' | 'monthly'>('repository')
   const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null)
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
 
   // Sophisticated gradient color palette
   const GRADIENTS = [
@@ -75,6 +82,13 @@ export default function CommitsPage() {
   useEffect(() => {
     setShowLoading(true)
     setLoading(true)
+
+    // Set up message rotation
+    const messageInterval = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length)
+    }, 1000)
+
+    return () => clearInterval(messageInterval)
   }, [])
 
   useEffect(() => {
@@ -173,22 +187,49 @@ export default function CommitsPage() {
 
         // Calculate current streak
         const sortedDates = allCommits
-          .map((c) => new Date(c.commit.author.date))
+          .map((c) => {
+            const date = new Date(c.commit.author.date);
+            date.setHours(0, 0, 0, 0);
+            return date;
+          })
           .sort((a, b) => b.getTime() - a.getTime());
 
         let streak = 0;
-        if (sortedDates.length > 0) {
-          const today = new Date();
-          let currentDate = new Date(sortedDates[0]);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-          while (
-            currentDate.toDateString() === today.toDateString() ||
-            (today.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24) <= streak
-          ) {
-            if (sortedDates.some((d) => d.toDateString() === currentDate.toDateString())) {
-              streak++;
-            }
+        if (sortedDates.length > 0) {
+          let currentDate = new Date(today);
+          let hasCommitToday = false;
+
+          // Check if there's a commit today
+          hasCommitToday = sortedDates.some(date => date.getTime() === today.getTime());
+
+          if (hasCommitToday) {
+            streak = 1;
             currentDate.setDate(currentDate.getDate() - 1);
+
+            // Count backwards until we find a day without commits
+            while (sortedDates.some(date => date.getTime() === currentDate.getTime())) {
+              streak++;
+              currentDate.setDate(currentDate.getDate() - 1);
+            }
+          } else {
+            // If no commit today, check if there was a commit yesterday
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (sortedDates.some(date => date.getTime() === yesterday.getTime())) {
+              streak = 1;
+              currentDate = new Date(yesterday);
+              currentDate.setDate(currentDate.getDate() - 1);
+
+              // Count backwards until we find a day without commits
+              while (sortedDates.some(date => date.getTime() === currentDate.getTime())) {
+                streak++;
+                currentDate.setDate(currentDate.getDate() - 1);
+              }
+            }
           }
         }
 
@@ -236,7 +277,7 @@ export default function CommitsPage() {
 
   return (
     <>
-      {showLoading && <AuthLoading message="Analyzing your Commits" />}
+      {showLoading && <AuthLoading message={loadingMessages[currentMessageIndex]} />}
       <div className={showLoading ? "hidden" : "block"}>
         <DashboardLayout>
           <div className="p-6">
@@ -499,40 +540,40 @@ export default function CommitsPage() {
                       key={`${commit.repository.name}-${commit.sha}-${commit.commit.author.date}-${index}`} 
                       className="group border border-indigo-500/20 bg-black/80 backdrop-blur-xl shadow-lg hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 rounded-xl overflow-hidden"
                     >
-                      <CardContent className="p-5">
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                          <div className="flex-1">
-                            <div className="flex flex-wrap items-start gap-2 mb-3">
-                              <h3 className="font-medium">
-                                <a
-                                  href={commit.html_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-white hover:text-cyan-400 transition-all duration-300"
-                                >
+                      <a
+                        href={commit.html_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block h-full hover:no-underline"
+                      >
+                        <CardContent className="p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-start gap-2 mb-3">
+                                <h3 className="font-medium text-white group-hover:text-cyan-400 transition-all duration-300">
                                   {commit.commit.message}
-                                </a>
-                              </h3>
-                            </div>
+                                </h3>
+                              </div>
 
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-                              <div className="flex items-center gap-1">
-                                <Badge variant="outline" className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl text-slate-300 border-indigo-500/20 group-hover:border-indigo-500/30 transition-colors">
-                                  {commit.repository.name}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <GitCommit className="w-4 h-4 text-cyan-400" />
-                                <span>{commit.sha.substring(0, 7)}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-4 h-4 text-blue-400" />
-                                <span>{formatDistanceToNow(new Date(commit.commit.author.date), { addSuffix: true })}</span>
+                              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl text-slate-300 border-indigo-500/20 group-hover:border-indigo-500/30 transition-colors">
+                                    {commit.repository.name}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <GitCommit className="w-4 h-4 text-cyan-400" />
+                                  <span>{commit.sha.substring(0, 7)}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4 text-blue-400" />
+                                  <span>{formatDistanceToNow(new Date(commit.commit.author.date), { addSuffix: true })}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
+                        </CardContent>
+                      </a>
                     </Card>
                   ))}
                 </div>

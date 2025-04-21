@@ -107,6 +107,19 @@ const calculateRating = (stats: GitHubStats | null): string => {
   return "C+";
 };
 
+const CustomLoadingMessages = [
+  "Customising Your Dashboard",
+  "Made with ❤️ by Techy",
+];
+
+const LoadingMessages = [
+  "Fetching your Developer Journey",
+  "Oh! Tooooo many commits 😵‍💫",
+  "Hold on a Sec Captain Commit",
+  "Customising Your Dashboard",
+  "Made with ❤️ by Techy",
+];
+
 export default function DashboardMainContent() {
   const supabase = createClientComponentClient()
   const { user, loading: userLoading } = useSupabase()
@@ -123,11 +136,6 @@ export default function DashboardMainContent() {
   const router = useRouter()
   const [loadingPercentage, setLoadingPercentage] = useState(0);
 
-  const loadingMessages = [
-    "Fetching your Repos, Commits & Pull Requests",
-    "Oh! Tooooo many commits 😵‍💫",
-    "Hold on a Sec Captain Commit",
-  ];
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
   const handleAuthError = (status: number) => {
@@ -139,11 +147,19 @@ export default function DashboardMainContent() {
   };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % loadingMessages.length);
-    }, 2000); // Change message every 2 seconds
+    const messageInterval = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % CustomLoadingMessages.length);
+    }, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(messageInterval);
+  }, []);
+
+  useEffect(() => {
+    const messageInterval = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % LoadingMessages.length);
+    }, 900);
+
+    return () => clearInterval(messageInterval);
   }, []);
 
   useEffect(() => {
@@ -297,16 +313,18 @@ export default function DashboardMainContent() {
         const allCommits: Commit[] = [];
         const commitsPerMonth: { [key: string]: number } = {};
         let streak = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         await Promise.all(
           repos.map(async (repo: Repository) => {
             const commitsResponse: Response = await fetch(
               `https://api.github.com/repos/${repo.full_name}/commits?author=${user?.user_metadata?.user_name || ''}`,
               {
-          headers: {
-            Authorization: `Bearer ${session.provider_token}`,
-            Accept: "application/vnd.github.v3+json",
-          },
+                headers: {
+                  Authorization: `Bearer ${session.provider_token}`,
+                  Accept: "application/vnd.github.v3+json",
+                },
               }
             );
 
@@ -315,29 +333,53 @@ export default function DashboardMainContent() {
               allCommits.push(...repoCommits);
 
               repoCommits.forEach((commit: Commit) => {
-          const monthYear: string = format(new Date(commit.commit.author.date), 'MMM yyyy');
-          commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
+                const monthYear: string = format(new Date(commit.commit.author.date), 'MMM yyyy');
+                commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
               });
             }
           })
         );
 
         const sortedDates = allCommits
-          .map((c) => new Date(c.commit.author.date))
+          .map((c) => {
+            const date = new Date(c.commit.author.date);
+            date.setHours(0, 0, 0, 0);
+            return date;
+          })
           .sort((a, b) => b.getTime() - a.getTime());
 
         if (sortedDates.length > 0) {
-          const today = new Date();
-          let currentDate = new Date(sortedDates[0]);
+          let currentDate = new Date(today);
+          let hasCommitToday = false;
 
-          while (
-            currentDate.toDateString() === today.toDateString() ||
-            (today.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24) <= streak
-          ) {
-            if (sortedDates.some((d) => d.toDateString() === currentDate.toDateString())) {
-              streak++;
-            }
+          // Check if there's a commit today
+          hasCommitToday = sortedDates.some(date => date.getTime() === today.getTime());
+
+          if (hasCommitToday) {
+            streak = 1;
             currentDate.setDate(currentDate.getDate() - 1);
+
+            // Count backwards until we find a day without commits
+            while (sortedDates.some(date => date.getTime() === currentDate.getTime())) {
+              streak++;
+              currentDate.setDate(currentDate.getDate() - 1);
+            }
+          } else {
+            // If no commit today, check if there was a commit yesterday
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (sortedDates.some(date => date.getTime() === yesterday.getTime())) {
+              streak = 1;
+              currentDate = new Date(yesterday);
+              currentDate.setDate(currentDate.getDate() - 1);
+
+              // Count backwards until we find a day without commits
+              while (sortedDates.some(date => date.getTime() === currentDate.getTime())) {
+                streak++;
+                currentDate.setDate(currentDate.getDate() - 1);
+              }
+            }
           }
         }
 
@@ -827,7 +869,7 @@ export default function DashboardMainContent() {
   if (loadingRepos && repositories.length === 0) {
     return (
       <div className="w-full h-screen">
-        <AuthLoading message="Loading your repositories..." />
+        <AuthLoading message={CustomLoadingMessages[currentMessageIndex]} />
       </div>
     );
   }
@@ -835,7 +877,7 @@ export default function DashboardMainContent() {
   if (initialLoading) {
     return (
       <div className="w-full h-screen">
-        <AuthLoading message={loadingMessages[currentMessageIndex]} />
+        <AuthLoading message={LoadingMessages[currentMessageIndex]} />
       </div>
     );
   }

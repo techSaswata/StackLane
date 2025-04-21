@@ -58,7 +58,14 @@ export default function PullRequestsPage() {
   const supabase = createClientComponentClient()
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'status' | 'repository'>('repository')
-  
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
+
+  const LoadingMessages = [
+    "Organising your Pull Requests",
+    "Hold on a Sec Mr. Pull..",
+    "Made with ❤️ by Techy",
+  ];
+
   // Sophisticated gradient color palette
   const GRADIENTS = [
     ['#3B82F6', '#2563EB'], // blue gradient
@@ -76,6 +83,14 @@ export default function PullRequestsPage() {
   useEffect(() => {
     setShowLoading(true)
     setLoading(true)
+  }, [])
+
+  useEffect(() => {
+    const messageInterval = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % LoadingMessages.length)
+    }, 1000)
+
+    return () => clearInterval(messageInterval)
   }, [])
 
   useEffect(() => {
@@ -235,7 +250,7 @@ export default function PullRequestsPage() {
 
   return (
     <>
-      {loading && <AuthLoading message="Fetching your Pull Requests" />}
+      {loading && <AuthLoading message={LoadingMessages[currentMessageIndex]} />}
       <div className={loading ? "hidden" : "block"}>
         <DashboardLayout>
           <div className="p-8 bg-gradient-to-br from-black via-[#0a0a0a] to-black min-h-screen w-full">
@@ -568,66 +583,66 @@ export default function PullRequestsPage() {
 function PRCard({ pr }: { pr: PullRequest }) {
   return (
     <Card className="group border border-indigo-500/20 bg-black/80 backdrop-blur-xl shadow-lg hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 rounded-xl overflow-hidden">
-      <CardContent className="p-5">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-          <div className="flex-1">
-            <div className="flex flex-wrap items-start gap-2 mb-3">
-              <h3 className="font-medium">
-                <a
-                  href={pr.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white hover:text-cyan-400 transition-all duration-300"
-                >
+      <a
+        href={pr.html_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block h-full hover:no-underline"
+      >
+        <CardContent className="p-5">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="flex-1">
+              <div className="flex flex-wrap items-start gap-2 mb-3">
+                <h3 className="font-medium text-white group-hover:text-cyan-400 transition-all duration-300">
                   {pr.title}
-                </a>
-              </h3>
-              {pr.merged || pr.state === 'closed' ? (
-                <Badge className="bg-gradient-to-r from-indigo-500 to-indigo-600 border-none">merged</Badge>
-              ) : (
-                <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 border-none">
-                  open
-                </Badge>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-3">
-              {pr.labels.map((label) => (
-                <Badge
-                  key={label.id}
-                  style={{
-                    backgroundColor: `#${label.color}10`,
-                    color: `#${label.color}`,
-                    borderColor: `#${label.color}30`,
-                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-                  }}
-                  variant="outline"
-                  className="ring-1 ring-white/10"
-                >
-                  {label.name}
-                </Badge>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl text-slate-300 border-indigo-500/20 group-hover:border-indigo-500/30 transition-colors">
-                  {pr.repository.name}
-                </Badge>
+                </h3>
+                {pr.merged || pr.state === 'closed' ? (
+                  <Badge className="bg-gradient-to-r from-indigo-500 to-indigo-600 border-none">merged</Badge>
+                ) : (
+                  <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 border-none">
+                    open
+                  </Badge>
+                )}
               </div>
-              <div className="flex items-center gap-1">
-                <GitMerge className="w-4 h-4 text-cyan-400" />
-                <span>#{pr.number}</span>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {pr.labels.map((label) => (
+                  <Badge
+                    key={label.id}
+                    style={{
+                      backgroundColor: `#${label.color}10`,
+                      color: `#${label.color}`,
+                      borderColor: `#${label.color}30`,
+                      textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                    }}
+                    variant="outline"
+                    className="ring-1 ring-white/10"
+                  >
+                    {label.name}
+                  </Badge>
+                ))}
               </div>
-              <span>{formatDistanceToNow(new Date(pr.created_at), { addSuffix: true })}</span>
-              <div className="flex items-center gap-1">
-                <MessageSquare className="w-4 h-4 text-blue-400" />
-                <span>{pr.comments}</span>
+
+              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl text-slate-300 border-indigo-500/20 group-hover:border-indigo-500/30 transition-colors">
+                    {pr.repository.name}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1">
+                  <GitMerge className="w-4 h-4 text-cyan-400" />
+                  <span>#{pr.number}</span>
+                </div>
+                <span>{formatDistanceToNow(new Date(pr.created_at), { addSuffix: true })}</span>
+                <div className="flex items-center gap-1">
+                  <MessageSquare className="w-4 h-4 text-blue-400" />
+                  <span>{pr.comments}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </CardContent>
+        </CardContent>
+      </a>
     </Card>
   )
 }
