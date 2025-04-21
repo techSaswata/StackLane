@@ -237,9 +237,8 @@ export default function DashboardMainContent() {
         const response = await fetch("/api/github/repos");
 
         if (!response.ok) {
-          if (await handleAuthError(response.status)) {
-            return;
-          }
+          const handled = await handleAuthError(response.status);
+          if (handled) return;
 
           // Handle other GitHub authentication errors
           const errorDetails = await response.json();
@@ -252,7 +251,7 @@ export default function DashboardMainContent() {
         }
 
         const data = await response.json();
-        console.log("Fetched repositories:", data); // Log the fetched repositories
+        console.log("Fetched repositories:", data);
 
         // Incrementally add repositories to the state
         for (const repo of data) {
