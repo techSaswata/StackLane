@@ -140,14 +140,35 @@ export default function DashboardMainContent() {
 
   const handleAuthError = async (status: number) => {
     if (status === 401) {
-      router.push("/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.");
-      return true;
+      try {
+        console.log("Handling 401 error - signing out user");
+        await supabase.auth.signOut();
+        // Clear any stored tokens or session data
+        await supabase.auth.refreshSession(); // Force session refresh
+        localStorage.removeItem('supabase.auth.token'); // Clear any stored token
+        window.location.href = "/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.";
+        return true;
+      } catch (error) {
+        console.error("Error during sign out process:", error);
+        // Force redirect even if sign out fails
+        window.location.href = "/login";
+        return true;
+      }
     }
     if (status === 403) {
       await handleApiLimitSignOut();
       return true;
     }
     return false;
+  };
+
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const response = await fetch(url, options);
+    if (response.status === 401) {
+      await handleAuthError(401);
+      throw new Error('Authentication failed');
+    }
+    return response;
   };
 
   const handleApiLimitSignOut = async () => {
@@ -234,7 +255,7 @@ export default function DashboardMainContent() {
 
       try {
         setLoadingRepos(true);
-        const response = await fetch("/api/github/repos");
+        const response = await fetchWithAuth("/api/github/repos");
 
         if (!response.ok) {
           const handled = await handleAuthError(response.status);
@@ -286,13 +307,13 @@ export default function DashboardMainContent() {
         }
 
         const [reposResponse, prsResponse] = await Promise.all([
-          fetch("https://api.github.com/user/repos", {
+          fetchWithAuth("https://api.github.com/user/repos", {
             headers: {
               Authorization: `Bearer ${session.provider_token}`,
               Accept: "application/vnd.github.v3+json",
             },
           }),
-          fetch(
+          fetchWithAuth(
             `https://api.github.com/search/issues?q=author:${user?.user_metadata?.user_name}+type:pr&per_page=100`,
             {
               headers: {
@@ -327,7 +348,7 @@ export default function DashboardMainContent() {
 
         await Promise.all(
           repos.map(async (repo: Repository) => {
-            const commitsResponse: Response = await fetch(
+            const commitsResponse: Response = await fetchWithAuth(
               `https://api.github.com/repos/${repo.full_name}/commits?author=${user?.user_metadata?.user_name || ''}`,
               {
                 headers: {
@@ -463,7 +484,7 @@ export default function DashboardMainContent() {
         const languages: { [key: string]: number } = {};
 
         for (const repo of repositories) {
-          const response = await fetch(`/api/github/repos/${repo.full_name}/languages`);
+          const response = await fetchWithAuth(`/api/github/repos/${repo.full_name}/languages`);
           if (!response.ok) continue;
 
           const data = await response.json();
@@ -549,7 +570,7 @@ export default function DashboardMainContent() {
           to: today.toISOString(),
         };
 
-        const response = await fetch("https://api.github.com/graphql", {
+        const response = await fetchWithAuth("https://api.github.com/graphql", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session.provider_token}`,
@@ -683,7 +704,7 @@ export default function DashboardMainContent() {
         const perPage = 100;
 
         while (true) {
-          const response = await fetch(
+          const response = await fetchWithAuth(
             `https://api.github.com/user/starred?per_page=${perPage}&page=${page}`,
             {
               headers: {
@@ -751,7 +772,7 @@ export default function DashboardMainContent() {
           return;
         }
 
-        const response = await fetch(
+        const response = await fetchWithAuth(
           `https://api.github.com/search/issues?q=author:${user?.user_metadata?.user_name}+type:issue+state:closed&per_page=1`,
           {
             headers: {
@@ -822,7 +843,7 @@ export default function DashboardMainContent() {
 
         await Promise.all(
           repositories.map(async (repo) => {
-            const response = await fetch(
+            const response = await fetchWithAuth(
               `https://api.github.com/repos/${repo.full_name}/pulls?state=all&author=${user?.user_metadata?.user_name}&since=${oneYearAgo.toISOString()}`,
               {
                 headers: {
