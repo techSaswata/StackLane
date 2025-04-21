@@ -46,7 +46,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Rooms", href: "/repositories", icon: Github },
+    { name: "Rooms", href: "/room", icon: Github },
     { name: "Pull Requests", href: "/pull-requests", icon: GitBranch },
     { name: "Commits", href: "/commits", icon: GitCommit },
   ]
@@ -71,10 +71,16 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
               <SidebarMenu>
                 {navItems.map((item) => (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name}>
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.name}</span>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={pathname === item.href} 
+                      tooltip={item.name}
+                    >
+                      <Link href={item.href} className="flex items-center gap-2">
+                        <item.icon className="text-white" />
+                        <span className={pathname === item.href ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400' : 'hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-cyan-400 hover:to-blue-400'}>
+                          {item.name}
+                        </span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

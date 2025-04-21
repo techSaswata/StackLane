@@ -44,6 +44,7 @@ export default function RoomsPage() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
           console.error("No session found")
+          router.push("/login")
           return
         }
 
@@ -54,7 +55,12 @@ export default function RoomsPage() {
         })
 
         if (!response.ok) {
-          throw new Error("Failed to fetch repositories")
+          if (response.status === 401 || response.status === 403) {
+            await supabase.auth.signOut()
+            router.push("/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.")
+            return
+          }
+          throw new Error("GitHub Session expired")
         }
 
         const data = await response.json()

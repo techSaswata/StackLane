@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSupabase } from "@/components/supabase-provider";
+import { useRouter } from "next/navigation"; // Add this line
 import { ChatPanel } from "@/components/chat-panel";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +16,7 @@ type Repo = {
 
 export default function MessagesPage() {
   const { supabase } = useSupabase();
+  const router = useRouter(); // Add this line at the top
   const [repos, setRepos] = useState<Repo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<Repo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,10 +26,30 @@ export default function MessagesPage() {
       try {
         setLoading(true);
 
+        // Get the session first
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          console.error("No session found");
+          router.push("/login");
+          return;
+        }
+
         // Call the custom SQL function
         const { data, error } = await supabase.rpc("get_repos_with_chats");
 
-        if (error) throw error;
+        if (error) {
+          // Check for authentication errors
+          if (error.code === '401' || error.code === '403') {
+            await supabase.auth.signOut();
+            router.push(
+              "/login?message=Your%20session%20has%20expired.%20Please%20re-authenticate."
+            );
+            return;
+          }
+          throw error;
+        }
 
         // Transform data to unique repos
         const uniqueRepos = data.map((repo: any) => ({
@@ -47,7 +69,7 @@ export default function MessagesPage() {
     };
 
     fetchReposWithChats();
-  }, [supabase]);
+  }, [supabase, router]); // Add router to dependencies
 
   return (
     <DashboardLayout>

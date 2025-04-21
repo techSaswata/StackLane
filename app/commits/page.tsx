@@ -124,6 +124,11 @@ export default function CommitsPage() {
         });
 
         if (!reposResponse.ok) {
+          if (reposResponse.status === 401 || reposResponse.status === 403) {
+            await supabase.auth.signOut();
+            router.push("/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.");
+            return;
+          }
           const errorData = await reposResponse.json().catch(() => ({}));
           console.error("GitHub API Error:", {
             status: reposResponse.status,
@@ -131,13 +136,7 @@ export default function CommitsPage() {
             error: errorData,
           });
 
-          if (reposResponse.status === 401) {
-            setError("GitHub token expired. Please sign in again.");
-            router.push("/login");
-            return;
-          }
-
-          throw new Error(`Failed to fetch repositories: ${reposResponse.statusText}`);
+          throw new Error(`Failed to fetch commits: ${reposResponse.statusText}`);
         }
 
         const repos = await reposResponse.json();

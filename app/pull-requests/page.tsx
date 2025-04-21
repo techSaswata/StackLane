@@ -105,10 +105,10 @@ export default function PullRequestsPage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           console.error("No session found");
+          router.push("/login");
           return;
         }
 
-        // First fetch the list of user's repositories
         const reposResponse = await fetch("https://api.github.com/user/repos", {
           headers: {
             Authorization: `Bearer ${session.provider_token}`,
@@ -116,9 +116,15 @@ export default function PullRequestsPage() {
         });
 
         if (!reposResponse.ok) {
-          throw new Error("Failed to fetch repositories");
+          if (reposResponse.status === 401 || reposResponse.status === 403) {
+            await supabase.auth.signOut();
+            router.push("/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.");
+            return;
+          }
+          throw new Error("Github Session expired");
         }
 
+        // First fetch the list of user's repositories
         const repos = await reposResponse.json();
 
         // Then fetch all PRs authored by the user

@@ -83,21 +83,21 @@ const calculateRating = (stats: GitHubStats | null): string => {
   else if (totalContributions > 500) score += 2;
   else if (totalContributions > 100) score += 1;
 
-  if (totalStars > 500) score += 3;
-  else if (totalStars > 200) score += 2;
-  else if (totalStars > 50) score += 1;
+  if (totalStars > 10) score += 3;
+  else if (totalStars > 7) score += 2;
+  else if (totalStars > 2) score += 1;
 
-  if (totalCommits > 1000) score += 3;
-  else if (totalCommits > 500) score += 2;
-  else if (totalCommits > 100) score += 1;
+  if (totalCommits > 150) score += 3;
+  else if (totalCommits > 90) score += 2;
+  else if (totalCommits > 50) score += 1;
 
-  if (totalPRs > 200) score += 3;
-  else if (totalPRs > 100) score += 2;
-  else if (totalPRs > 20) score += 1;
+  if (totalPRs > 50) score += 3;
+  else if (totalPRs > 30) score += 2;
+  else if (totalPRs > 10) score += 1;
 
-  if (closedIssues > 200) score += 3;
-  else if (closedIssues > 100) score += 2;
-  else if (closedIssues > 20) score += 1;
+  if (closedIssues > 80) score += 3;
+  else if (closedIssues > 30) score += 2;
+  else if (closedIssues > 10) score += 1;
 
   // Determine rating based on score
   if (score >= 13) return "A+";
@@ -936,17 +936,27 @@ export default function DashboardMainContent() {
     <DashboardLayout>
       <div className="p-6 space-y-6 w-full">
         {/* Profile Overview */}
-        <div className="flex items-center gap-6 bg-[#111] border border-[#222] rounded-lg p-6 w-full">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={user?.user_metadata?.avatar_url} />
-            <AvatarFallback>GH</AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
-              {user?.user_metadata?.full_name}
-            </h1>
-            <p className="text-slate-400">@{user?.user_metadata?.user_name}</p>
+        <div className="flex items-center justify-between gap-6 bg-[#111] border border-[#222] rounded-lg p-6 w-full">
+          <div className="flex items-center gap-6">
+            <Avatar className="h-20 w-20">
+              <AvatarImage src={user?.user_metadata?.avatar_url} />
+              <AvatarFallback>GH</AvatarFallback>
+            </Avatar>
+            <div>
+              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
+                {user?.user_metadata?.full_name}
+              </h1>
+              <p className="text-slate-400">@{user?.user_metadata?.user_name}</p>
+            </div>
           </div>
+          <a
+            href={`https://github.com/${user?.user_metadata?.user_name}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-6 py-2.5 bg-gradient-to-br from-indigo-600 via-indigo-500 to-indigo-700 hover:from-indigo-700 hover:via-indigo-600 hover:to-indigo-800 text-white rounded-lg transition-all duration-300 font-medium shadow-sm shadow-indigo-500/10 hover:shadow-indigo-500/20 border border-indigo-500/10"
+          >
+            Way to GitHub
+          </a>
         </div>
 
         {/* Quick Stats */}
