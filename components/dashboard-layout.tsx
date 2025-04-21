@@ -46,7 +46,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Rooms", href: "/room", icon: Github },
+    { name: "Rooms", href: "/rooms", icon: Github },
     { name: "Pull Requests", href: "/pull-requests", icon: GitBranch },
     { name: "Commits", href: "/commits", icon: GitCommit },
   ]
