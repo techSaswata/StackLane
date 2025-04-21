@@ -284,8 +284,8 @@ export default function PullRequestsPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-8">
-                      <div className="flex items-center justify-between gap-8 h-[500px]">
-                        <div className="h-full w-[500px]">
+                      <div className="flex flex-col lg:flex-row items-center justify-between gap-8 h-auto lg:h-[500px]">
+                        <div className="h-[300px] lg:h-full w-full lg:w-[500px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <defs>
@@ -340,7 +340,7 @@ export default function PullRequestsPage() {
                           </ResponsiveContainer>
                         </div>
 
-                        <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                        <div className="flex-1 space-y-3 max-h-[300px] lg:max-h-[500px] w-full overflow-y-auto pr-4 custom-scrollbar">
                           {repoStats.map((entry, index) => (
                             <div 
                               key={entry.name}
@@ -388,8 +388,8 @@ export default function PullRequestsPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-8">
-                      <div className="flex items-center justify-between gap-8 h-[500px]">
-                        <div className="h-full w-[500px]">
+                      <div className="flex flex-col lg:flex-row items-center justify-between gap-8 h-auto lg:h-[500px]">
+                        <div className="h-[300px] lg:h-full w-full lg:w-[500px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <defs>

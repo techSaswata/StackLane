@@ -192,6 +192,13 @@ export default function CommitsPage() {
           }
         }
 
+        // Sort commits by date in descending order (newest first)
+        allCommits.sort((a, b) => {
+          const dateA = new Date(a.commit.author.date).getTime();
+          const dateB = new Date(b.commit.author.date).getTime();
+          return dateB - dateA;
+        });
+
         // Format data for charts
         const commitsPerRepoData = Object.entries(commitsPerRepo)
           .map(([name, value]) => ({ name, value }))
@@ -289,8 +296,8 @@ export default function CommitsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between gap-8 h-[500px]">
-                      <div className="h-full w-[500px]">
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-8 h-auto lg:h-[500px]">
+                      <div className="h-[400px] lg:h-full w-full lg:w-[500px]">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <defs>
@@ -345,7 +352,7 @@ export default function CommitsPage() {
                         </ResponsiveContainer>
                       </div>
 
-                      <div className="flex-1 space-y-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                      <div className="flex-1 w-full space-y-3 max-h-[300px] lg:max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
                         {stats.commitsPerRepo.map((entry, index) => (
                           <div 
                             key={entry.name}
@@ -393,7 +400,7 @@ export default function CommitsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[500px] w-full">
+                    <div className="h-[400px] lg:h-[500px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={stats.commitsPerMonth}>
                           <defs>
