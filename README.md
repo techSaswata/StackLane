@@ -21,6 +21,15 @@ StackLane in action:
 
 *(Warning: Side effects may include uncontrollable smiling and increased productivity.)*
 
+## Tech Stack
+**Built with cutting-edge technologies:**
+- **Frontend:** React.js, Next.js, TailwindCSS
+- **Backend:** Next.js API Routes
+- **Database:** Supabase (PostgreSQL)
+- **Real-time:** Supabase Real-time
+- **Authentication:** Supabase Auth with GitHub OAuth
+- **Deployment:** Vercel
+
 ## Installation
 **Want to Collaborate with me?**  
 1. Clone the repository:  

@@ -139,46 +139,39 @@ export default function DashboardMainContent() {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
   const handleAuthError = async (status: number) => {
-    if (status === 401) {
+    if (status === 401 || status === 403) {
       try {
-        console.log("Handling 401 error - signing out user");
+        console.log(`Handling ${status} error - signing out user`);
         await supabase.auth.signOut();
         // Clear any stored tokens or session data
-        await supabase.auth.refreshSession(); // Force session refresh
-        localStorage.removeItem('supabase.auth.token'); // Clear any stored token
-        window.location.href = "/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.";
+        await supabase.auth.refreshSession();
+        localStorage.removeItem('supabase.auth.token');
+        
+        // Redirect based on error type
+        const redirectUrl = status === 401 
+          ? "/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate."
+          : "/api-limit";
+        
+        window.location.href = redirectUrl;
         return true;
       } catch (error) {
         console.error("Error during sign out process:", error);
         // Force redirect even if sign out fails
-        window.location.href = "/login";
+        window.location.href = status === 401 ? "/login" : "/api-limit";
         return true;
       }
-    }
-    if (status === 403) {
-      await handleApiLimitSignOut();
-      return true;
     }
     return false;
   };
 
   const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     const response = await fetch(url, options);
-    if (response.status === 401) {
-      await handleAuthError(401);
+    if (response.status === 401 || response.status === 403) {
+      await handleAuthError(response.status);
       throw new Error('Authentication failed');
     }
     return response;
   };
-
-  const handleApiLimitSignOut = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push("/api-limit")
-    } catch (error) {
-      console.error("Error signing out:", error)
-    }
-  }
 
   useEffect(() => {
     const messageInterval = setInterval(() => {
