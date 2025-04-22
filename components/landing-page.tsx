@@ -390,110 +390,8 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative py-16 border-t border-[#222]">
+      <footer className="relative py-16 border-[#222]">
         <div className="max-w-[1400px] mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-            <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/features" className="text-white/70 hover:text-white transition-colors">
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/pricing" className="text-white/70 hover:text-white transition-colors">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/security" className="text-white/70 hover:text-white transition-colors">
-                    Security
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/changelog" className="text-white/70 hover:text-white transition-colors">
-                    Changelog
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/about" className="text-white/70 hover:text-white transition-colors">
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/blog" className="text-white/70 hover:text-white transition-colors">
-                    Blog
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/careers" className="text-white/70 hover:text-white transition-colors">
-                    Careers
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="text-white/70 hover:text-white transition-colors">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Resources</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/documentation" className="text-white/70 hover:text-white transition-colors">
-                    Documentation
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/api" className="text-white/70 hover:text-white transition-colors">
-                    API
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/guides" className="text-white/70 hover:text-white transition-colors">
-                    Guides
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/help" className="text-white/70 hover:text-white transition-colors">
-                    Help Center
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Legal</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/terms" className="text-white/70 hover:text-white transition-colors">
-                    Terms
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy" className="text-white/70 hover:text-white transition-colors">
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/cookies" className="text-white/70 hover:text-white transition-colors">
-                    Cookies
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/licenses" className="text-white/70 hover:text-white transition-colors">
-                    Licenses
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-[#222]">
             <div className="flex items-center gap-2 mb-4 md:mb-0">
               <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-500 rounded-md flex items-center justify-center">
@@ -501,7 +399,8 @@ export default function LandingPage() {
               </div>
               <span className="text-xl font-semibold text-white">StackLane</span>
             </div>
-            <div className="text-white/50 text-sm">© {new Date().getFullYear()} StackLane. All rights reserved.</div>
+            <div className="text-white/50 text-sm"> Made with ❤️ by TechSaswata </div>
+            <div className="text-white/50 text-sm">© {new Date().getFullYear()} StackLane. </div>
           </div>
         </div>
       </footer>
