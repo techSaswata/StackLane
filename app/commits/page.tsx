@@ -115,7 +115,22 @@ export default function CommitsPage() {
           return;
         }
 
-        // First fetch repositories
+        // First fetch user information to get GitHub username
+        const userResponse = await fetch("https://api.github.com/user", {
+          headers: {
+            Authorization: `Bearer ${session.provider_token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        });
+
+        if (!userResponse.ok) {
+          throw new Error(`Failed to fetch user info: ${userResponse.statusText}`);
+        }
+
+        const userData = await userResponse.json();
+        const username = userData.login;
+
+        // Approach 1: Fetch user's own repositories
         const reposResponse = await fetch("https://api.github.com/user/repos", {
           headers: {
             Authorization: `Bearer ${session.provider_token}`,
@@ -129,27 +144,40 @@ export default function CommitsPage() {
             router.push("/login?message=Your%20GitHub%20session%20has%20expired.%20Please%20re-authenticate.");
             return;
           }
-          const errorData = await reposResponse.json().catch(() => ({}));
-          console.error("GitHub API Error:", {
-            status: reposResponse.status,
-            statusText: reposResponse.statusText,
-            error: errorData,
-          });
-
-          throw new Error(`Failed to fetch commits: ${reposResponse.statusText}`);
+          throw new Error(`Failed to fetch repos: ${reposResponse.statusText}`);
         }
 
         const repos = await reposResponse.json();
+        
+        // Approach 2: Search for commits by the user across all GitHub
+        // This will find commits in repositories you don't own and haven't forked
+        const searchCommitsResponse = await fetch(
+          `https://api.github.com/search/commits?q=author:${username}&sort=author-date&order=desc&per_page=100`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.provider_token}`,
+              Accept: "application/vnd.github.cloak-preview", // Required for commits search
+            },
+          }
+        );
 
-        // Fetch commits for each repository
+        if (!searchCommitsResponse.ok) {
+          throw new Error(`Failed to search commits: ${searchCommitsResponse.statusText}`);
+        }
+
+        const searchCommitsData = await searchCommitsResponse.json();
+        
+        // Process and store all commits
         const allCommits: Commit[] = [];
         const commitsPerRepo: { [key: string]: number } = {};
         const commitsPerMonth: { [key: string]: number } = {};
+        const processedCommits = new Set(); // To avoid duplicates
 
+        // Process commits from user's own repositories
         for (const repo of repos) {
           try {
             const commitsResponse = await fetch(
-              `https://api.github.com/repos/${repo.full_name}/commits?author=${user?.user_metadata?.user_name || ''}`,
+              `https://api.github.com/repos/${repo.full_name}/commits?author=${username}&per_page=100`,
               {
                 headers: {
                   Authorization: `Bearer ${session.provider_token}`,
@@ -160,19 +188,25 @@ export default function CommitsPage() {
 
             if (commitsResponse.ok) {
               const repoCommits = await commitsResponse.json();
-              repoCommits.forEach((commit: Commit) => {
-                commit.repository = { name: repo.name, full_name: repo.full_name };
-              });
-              allCommits.push(...repoCommits);
-
-              // Count commits per repo
-              commitsPerRepo[repo.name] = repoCommits.length;
-
-              // Count commits per month
-              repoCommits.forEach((commit: Commit) => {
-                const monthYear = format(new Date(commit.commit.author.date), 'MMM yyyy');
-                commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
-              });
+              
+              for (const commit of repoCommits) {
+                const commitKey = `${commit.sha}-${repo.full_name}`;
+                
+                if (!processedCommits.has(commitKey)) {
+                  processedCommits.add(commitKey);
+                  
+                  // Add repository information to the commit
+                  commit.repository = { name: repo.name, full_name: repo.full_name };
+                  allCommits.push(commit);
+                  
+                  // Count commits per repo
+                  commitsPerRepo[repo.name] = (commitsPerRepo[repo.name] || 0) + 1;
+                  
+                  // Count commits per month
+                  const monthYear = format(new Date(commit.commit.author.date), 'MMM yyyy');
+                  commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
+                }
+              }
             } else {
               console.warn(`Failed to fetch commits for ${repo.full_name}:`, {
                 status: commitsResponse.status,
@@ -184,7 +218,81 @@ export default function CommitsPage() {
           }
         }
 
-        // Calculate current streak
+        // Process commits from search results (repositories you don't own but have contributed to)
+        if (searchCommitsData.items && searchCommitsData.items.length > 0) {
+          for (const item of searchCommitsData.items) {
+            try {
+              // Extract repository information from the commit URL
+              // URL format: https://api.github.com/repos/{owner}/{repo}/commits/{sha}
+              const urlParts = item.url.split('/');
+              const repoOwner = urlParts[4];
+              const repoName = urlParts[5];
+              const repoFullName = `${repoOwner}/${repoName}`;
+              
+              // Skip if this is user's own repository (already processed above)
+              if (repos.some((repo: { full_name: string }) => repo.full_name === repoFullName)) {
+                continue;
+              }
+              
+              const commitKey = `${item.sha}-${repoFullName}`;
+              if (!processedCommits.has(commitKey)) {
+                processedCommits.add(commitKey);
+                
+                // Get detailed commit information
+                const commitResponse = await fetch(
+                  `https://api.github.com/repos/${repoFullName}/commits/${item.sha}`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${session.provider_token}`,
+                      Accept: "application/vnd.github.v3+json",
+                    },
+                  }
+                );
+                
+                if (commitResponse.ok) {
+                  const commitData = await commitResponse.json();
+                  
+                  // Add repository information
+                  commitData.repository = { 
+                    name: repoName, 
+                    full_name: repoFullName 
+                  };
+                  
+                  allCommits.push(commitData);
+                  
+                  // Count commits per repo
+                  commitsPerRepo[repoName] = (commitsPerRepo[repoName] || 0) + 1;
+                  
+                  // Count commits per month
+                  const monthYear = format(new Date(commitData.commit.author.date), 'MMM yyyy');
+                  commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
+                }
+              }
+            } catch (error) {
+              console.error(`Error processing search commit:`, error);
+            }
+          }
+        }
+
+        // Sort commits by date in descending order (newest first)
+        allCommits.sort((a, b) => {
+          const dateA = new Date(a.commit.author.date).getTime();
+          const dateB = new Date(b.commit.author.date).getTime();
+          return dateB - dateA;
+        });
+
+        // Format data for charts
+        const commitsPerRepoData = Object.entries(commitsPerRepo)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+
+        const commitsPerMonthData = Object.entries(commitsPerMonth)
+          .map(([name, commits]) => ({ name, commits }))
+          .sort((a, b) => new Date(b.name).getTime() - new Date(a.name).getTime())
+          .slice(0, 12)
+          .reverse();
+
+        // Calculate streak (keeping your original streak calculation)
         const sortedDates = allCommits
           .map((c) => {
             const date = new Date(c.commit.author.date);
@@ -231,24 +339,6 @@ export default function CommitsPage() {
             }
           }
         }
-
-        // Sort commits by date in descending order (newest first)
-        allCommits.sort((a, b) => {
-          const dateA = new Date(a.commit.author.date).getTime();
-          const dateB = new Date(b.commit.author.date).getTime();
-          return dateB - dateA;
-        });
-
-        // Format data for charts
-        const commitsPerRepoData = Object.entries(commitsPerRepo)
-          .map(([name, value]) => ({ name, value }))
-          .sort((a, b) => b.value - a.value);
-
-        const commitsPerMonthData = Object.entries(commitsPerMonth)
-          .map(([name, commits]) => ({ name, commits }))
-          .sort((a, b) => new Date(b.name).getTime() - new Date(a.name).getTime())
-          .slice(0, 12)
-          .reverse();
 
         setCommits(allCommits);
         setStats({

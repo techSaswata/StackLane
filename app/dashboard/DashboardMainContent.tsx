@@ -299,13 +299,38 @@ export default function DashboardMainContent() {
           return;
         }
 
-        const [reposResponse, prsResponse] = await Promise.all([
+        // First fetch user information to get GitHub username
+        const userResponse = await fetch("https://api.github.com/user", {
+          headers: {
+            Authorization: `Bearer ${session.provider_token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        });
+
+        if (!userResponse.ok) {
+          throw new Error(`Failed to fetch user info: ${userResponse.statusText}`);
+        }
+
+        const userData = await userResponse.json();
+        const username = userData.login;
+
+        // Fetch repositories and search for commits in parallel
+        const [reposResponse, searchCommitsResponse, prsResponse] = await Promise.all([
           fetchWithAuth("https://api.github.com/user/repos", {
             headers: {
               Authorization: `Bearer ${session.provider_token}`,
               Accept: "application/vnd.github.v3+json",
             },
           }),
+          fetchWithAuth(
+            `https://api.github.com/search/commits?q=author:${username}&sort=author-date&order=desc&per_page=100`,
+            {
+              headers: {
+                Authorization: `Bearer ${session.provider_token}`,
+                Accept: "application/vnd.github.cloak-preview",
+              },
+            }
+          ),
           fetchWithAuth(
             `https://api.github.com/search/issues?q=author:${user?.user_metadata?.user_name}+type:pr&per_page=100`,
             {
@@ -317,32 +342,26 @@ export default function DashboardMainContent() {
           ),
         ]);
 
-        if (!reposResponse.ok || !prsResponse.ok) {
-          throw new Error("Failed to fetch data from GitHub API");
+        if (!reposResponse.ok || !searchCommitsResponse.ok || !prsResponse.ok) {
+          throw new Error("Failed to fetch GitHub data");
         }
 
-        const [repos, prsData] = await Promise.all([
+        const [repos, searchCommitsData, prsData] = await Promise.all([
           reposResponse.json(),
+          searchCommitsResponse.json(),
           prsResponse.json(),
         ]);
 
-        interface Commit {
-          commit: {
-            author: {
-              date: string;
-            };
-          };
-        }
-        const allCommits: Commit[] = [];
+        // Process and store all commits
+        const allCommits = [];
         const commitsPerMonth: { [key: string]: number } = {};
-        let streak = 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const processedCommits = new Set();
 
-        await Promise.all(
-          repos.map(async (repo: Repository) => {
-            const commitsResponse: Response = await fetchWithAuth(
-              `https://api.github.com/repos/${repo.full_name}/commits?author=${user?.user_metadata?.user_name || ''}`,
+        // Process commits from user's own repositories
+        for (const repo of repos) {
+          try {
+            const commitsResponse = await fetch(
+              `https://api.github.com/repos/${repo.full_name}/commits?author=${username}&per_page=100`,
               {
                 headers: {
                   Authorization: `Bearer ${session.provider_token}`,
@@ -352,17 +371,47 @@ export default function DashboardMainContent() {
             );
 
             if (commitsResponse.ok) {
-              const repoCommits: Commit[] = await commitsResponse.json();
-              allCommits.push(...repoCommits);
-
-              repoCommits.forEach((commit: Commit) => {
-                const monthYear: string = format(new Date(commit.commit.author.date), 'MMM yyyy');
-                commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
-              });
+              const repoCommits = await commitsResponse.json();
+              for (const commit of repoCommits) {
+                const commitKey = `${commit.sha}-${repo.full_name}`;
+                if (!processedCommits.has(commitKey)) {
+                  processedCommits.add(commitKey);
+                  allCommits.push(commit);
+                  
+                  // Update commits per month
+                  const monthYear = format(new Date(commit.commit.author.date), 'MMM yyyy');
+                  commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
+                }
+              }
             }
-          })
-        );
+          } catch (error) {
+            console.error(`Error fetching commits for ${repo.full_name}:`, error);
+          }
+        }
 
+        // Process commits from search results (repositories you don't own but have contributed to)
+        if (searchCommitsData.items?.length > 0) {
+          for (const item of searchCommitsData.items) {
+            const urlParts = item.url.split('/');
+            const repoFullName = `${urlParts[4]}/${urlParts[5]}`;
+            
+            if (repos.some((repo: Repository) => repo.full_name === repoFullName)) {
+              continue;
+            }
+            
+            const commitKey = `${item.sha}-${repoFullName}`;
+            if (!processedCommits.has(commitKey)) {
+              processedCommits.add(commitKey);
+              allCommits.push(item);
+              
+              // Update commits per month
+              const monthYear = format(new Date(item.commit.author.date), 'MMM yyyy');
+              commitsPerMonth[monthYear] = (commitsPerMonth[monthYear] || 0) + 1;
+            }
+          }
+        }
+
+        // Rest of your existing streak calculation code remains unchanged
         const sortedDates = allCommits
           .map((c) => {
             const date = new Date(c.commit.author.date);
@@ -370,6 +419,11 @@ export default function DashboardMainContent() {
             return date;
           })
           .sort((a, b) => b.getTime() - a.getTime());
+
+        // Your existing streak calculation code...
+        let streak = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         if (sortedDates.length > 0) {
           let currentDate = new Date(today);
@@ -382,13 +436,11 @@ export default function DashboardMainContent() {
             streak = 1;
             currentDate.setDate(currentDate.getDate() - 1);
 
-            // Count backwards until we find a day without commits
             while (sortedDates.some(date => date.getTime() === currentDate.getTime())) {
               streak++;
               currentDate.setDate(currentDate.getDate() - 1);
             }
           } else {
-            // If no commit today, check if there was a commit yesterday
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
 
@@ -397,7 +449,6 @@ export default function DashboardMainContent() {
               currentDate = new Date(yesterday);
               currentDate.setDate(currentDate.getDate() - 1);
 
-              // Count backwards until we find a day without commits
               while (sortedDates.some(date => date.getTime() === currentDate.getTime())) {
                 streak++;
                 currentDate.setDate(currentDate.getDate() - 1);
@@ -406,18 +457,14 @@ export default function DashboardMainContent() {
           }
         }
 
-        interface PullRequest {
-          id: number;
-          merged: boolean;
-        }
-
-        const prs: PullRequest[] = prsData.items.map((item: { id: number; pull_request?: { merged_at?: string | null } }) => ({
+        // Rest of your existing code for processing PRs and setting stats
+        const prs = prsData.items.map((item: { id: number; pull_request?: { merged_at: string | null } }) => ({
           id: item.id,
           merged: !!item.pull_request?.merged_at,
         }));
 
         const totalPRs = prs.length;
-        const mergedPRs = prs.filter((pr) => pr.merged).length;
+        const mergedPRs = prs.filter((pr: { merged: boolean }) => pr.merged).length;
         const openPRs = totalPRs - mergedPRs;
 
         const commitsPerMonthData = Object.entries(commitsPerMonth)
@@ -426,13 +473,8 @@ export default function DashboardMainContent() {
           .slice(0, 12)
           .reverse();
 
-        console.log("Fetched repositories:", repos);
-        console.log("Total Commits:", allCommits.length);
-        console.log("Commits Per Month:", commitsPerMonthData);
-        console.log("Merged PRs:", mergedPRs);
-        console.log("Total PRs:", totalPRs);
-
         setStats((prev) => ({
+          ...prev,
           totalCommits: allCommits.length,
           currentStreak: streak,
           totalPRs,
@@ -456,6 +498,7 @@ export default function DashboardMainContent() {
           longestStreakRange: prev?.longestStreakRange || "",
           ongoingPRs: prev?.ongoingPRs || 0,
         }));
+
       } catch (error) {
         console.error("Error fetching GitHub stats:", error);
         setError("Failed to load your GitHub statistics. Please try again later.");
