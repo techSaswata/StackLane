@@ -119,14 +119,7 @@ function LoginContent() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <div className="text-sm text-white/60 text-center">
-              By signing in, you agree to our{" "}
-              <Link href="/terms" className="text-purple-400 hover:underline">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-purple-400 hover:underline">
-                Privacy Policy
-              </Link>
+              Made with ❤️ by Techy
             </div>
           </CardFooter>
         </Card>
