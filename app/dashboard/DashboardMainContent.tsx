@@ -932,15 +932,27 @@ export default function DashboardMainContent() {
     fetchContributedRepos();
   }, [user, repositories]);
 
-  if (loadingRepos && repositories.length === 0) {
-    return (
-      <div className="w-full h-screen">
-        <AuthLoading message={CustomLoadingMessages[currentMessageIndex]} />
-      </div>
-    );
-  }
+  // Add this new state right after other state declarations
+  const [criticalDataLoaded, setCriticalDataLoaded] = useState(false);
 
-  if (initialLoading) {
+  // Add this new useEffect to track critical data loading
+  useEffect(() => {
+    if (
+      stats?.totalCommits !== undefined && 
+      stats?.contributionData?.counts.length > 0 &&
+      stats?.totalPRs !== undefined &&
+      stats?.closedIssues !== undefined &&
+      !loadingCommits &&
+      !loadingPRs
+    ) {
+      setTimeout(() => {
+        setCriticalDataLoaded(true);
+      }, 1000); // Add a small delay for smooth transition
+    }
+  }, [stats, loadingCommits, loadingPRs]);
+
+  // Modify the initial loading check to include criticalDataLoaded
+  if (loadingRepos && repositories.length === 0 || !criticalDataLoaded) {
     return (
       <div className="w-full h-screen">
         <AuthLoading message={LoadingMessages[currentMessageIndex]} />
