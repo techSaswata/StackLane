@@ -143,7 +143,7 @@ export default function LandingPage() {
               transition={{ duration: 0.8, delay: 0.8 }}
               className="text-base font-semibold text-white/60 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-purple-500 hover:to-blue-500 hover:underline transition-all"
             >
-              with ❤️ by techSas
+              with ❤️ by techy
             </motion.h3>
           </motion.div>
           {/* Featured UI Card */}
